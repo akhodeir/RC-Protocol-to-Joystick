@@ -2,10 +2,15 @@
  * main.c — RC-Joystick firmware entry point.
  *
  * Reads FlySky iBUS on UART0 (GP1), maps 14 channels onto an 8-axis + 32-button
- * HID report, and drives a WS2812 status LED on GP23 (YD-RP2040 on-board).
+ * HID report, and blinks the on-board LED on GP25 to indicate status.
  *
  * Failsafe: if no valid frame is received for FAILSAFE_TIMEOUT_MS, all axes
- * center, throttle (Z) forces to minimum, and buttons clear. The LED goes red.
+ * center, throttle (Z) forces to minimum, and buttons clear.
+ *
+ * LED patterns on GP25:
+ *   - Fast (100 ms) blink : USB not yet enumerated
+ *   - Slow (500 ms) blink : USB enumerated, waiting for iBUS frames (or failsafe)
+ *   - Solid on            : Frames arriving normally
  */
 #include <stdio.h>
 #include <string.h>
@@ -13,7 +18,6 @@
 #include "tusb.h"
 
 #include "usb_descriptors.h"
-#include "rgb_led.h"
 
 #if defined(PROTOCOL_IBUS)
   #include "ibus.h"
@@ -26,11 +30,8 @@
   #error "This build requires PROTOCOL_IBUS. Use -DPROTOCOL=ibus."
 #endif
 
-#define RGB_LED_PIN               WS2812_PIN_OVERRIDE
-#define HEARTBEAT_LED_PIN         25u    // YD-RP2040 on-board green LED (Pico convention)
+#define STATUS_LED_PIN            25u    // YD-RP2040 on-board LED (Pico convention)
 #define FAILSAFE_TIMEOUT_MS       500u
-#define CENTER_TOLERANCE          40   // ~2% of ±32767 → within ±640 counts feels tight;
-                                       // apply against raw channel diff instead (see below)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Channel → axis scaling (int16 signed, -32767..32767)
@@ -51,16 +52,36 @@ static void set_failsafe_report(joystick_report_t *r) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Are all four primary sticks within ±2% of center? Uses raw iBUS values so
-// the tolerance is protocol-natural (~10 counts on a 1000-wide range).
+// Status LED driver: pick a blink cadence based on current mode.
+//   USB not mounted         → 100 ms fast blink
+//   Mounted, no frames yet  → 500 ms slow blink
+//   Mounted, frames active  → solid on
 // ─────────────────────────────────────────────────────────────────────────────
-static bool sticks_centered(const uint16_t *ch) {
-    const int TOL = 20;  // ±20 counts on a 1000-count half-range = 2 %
-    for (int i = 0; i < 4; i++) {
-        int diff = (int)ch[i] - CH_MID;
-        if (diff < -TOL || diff > TOL) return false;
+typedef enum {
+    LED_MODE_BOOT,     // USB not enumerated
+    LED_MODE_WAITING,  // USB up, no iBUS lock
+    LED_MODE_ACTIVE,   // Frames arriving
+} led_mode_t;
+
+static void status_led_update(led_mode_t mode) {
+    static uint32_t last_ms = 0;
+    static bool on = false;
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+    uint32_t period = 0;
+
+    switch (mode) {
+        case LED_MODE_BOOT:    period = 100; break;
+        case LED_MODE_WAITING: period = 500; break;
+        case LED_MODE_ACTIVE:
+            if (!on) { on = true; gpio_put(STATUS_LED_PIN, 1); }
+            return;
     }
-    return true;
+
+    if ((now - last_ms) >= period) {
+        last_ms = now;
+        on = !on;
+        gpio_put(STATUS_LED_PIN, on);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,14 +90,9 @@ static bool sticks_centered(const uint16_t *ch) {
 int main(void) {
     stdio_init_all();  // initialises clocks (harmless with stdio disabled)
 
-    // ── Heartbeat LED on GP25 (YD-RP2040 on-board green LED) ──────────────
-    // Independent of the WS2812 driver; if this blinks, firmware is alive.
-    gpio_init(HEARTBEAT_LED_PIN);
-    gpio_set_dir(HEARTBEAT_LED_PIN, GPIO_OUT);
-    gpio_put(HEARTBEAT_LED_PIN, 1);
-
-    rgb_led_init(RGB_LED_PIN);
-    rgb_led_set_state(RGB_STATE_BOOT);
+    gpio_init(STATUS_LED_PIN);
+    gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
+    gpio_put(STATUS_LED_PIN, 0);
 
     ibus_init(IBUS_UART, RC_RX_PIN);
     tusb_init();
@@ -88,28 +104,12 @@ int main(void) {
     bool     rc_active     = false;
     uint32_t last_frame_ms = 0;
     uint32_t last_send_ms  = 0;
-    uint32_t last_beat_ms  = 0;
-    bool     beat_on       = true;
 
     while (true) {
         // 1. USB stack
         tud_task();
 
-        // Heartbeat: toggle GP25 at 2 Hz so we can visually confirm the loop
-        // is running even if the WS2812 is not visible.
-        {
-            uint32_t now_hb = to_ms_since_boot(get_absolute_time());
-            if ((now_hb - last_beat_ms) >= 250) {
-                last_beat_ms = now_hb;
-                beat_on = !beat_on;
-                gpio_put(HEARTBEAT_LED_PIN, beat_on);
-            }
-        }
-
-        // 2. Update LED animation state
-        rgb_led_task();
-
-        // 3. Ingest any pending iBUS bytes
+        // 2. Read iBUS
         bool new_frame = ibus_update();
         uint32_t now = to_ms_since_boot(get_absolute_time());
 
@@ -119,23 +119,17 @@ int main(void) {
             rc_active = true;
         }
 
-        // 4. Failsafe timeout
+        // 3. Failsafe timeout
         if (rc_active && (now - last_frame_ms) > FAILSAFE_TIMEOUT_MS) {
             rc_active = false;
         }
 
-        // 5. Set LED status
-        if (!tud_mounted()) {
-            rgb_led_set_state(RGB_STATE_BOOT);
-        } else if (!rc_active) {
-            rgb_led_set_state(ibus_has_lock() ? RGB_STATE_FAILSAFE : RGB_STATE_READY);
-        } else if (sticks_centered(channels)) {
-            rgb_led_set_state(RGB_STATE_CENTERED);
-        } else {
-            rgb_led_set_state(RGB_STATE_ACTIVE);
-        }
+        // 4. Status LED
+        led_mode_t mode = LED_MODE_BOOT;
+        if (tud_mounted()) mode = rc_active ? LED_MODE_ACTIVE : LED_MODE_WAITING;
+        status_led_update(mode);
 
-        // 6. Build the HID report
+        // 5. Build the HID report
         if (!rc_active) {
             set_failsafe_report(&report);
         } else {
@@ -154,8 +148,7 @@ int main(void) {
             report.buttons = btns;
         }
 
-        // 7. Send HID report at ~200 Hz max (5 ms). Also rate-limits when
-        //    receiver is offline — no point flooding the host with failsafe.
+        // 6. Send HID report at ~200 Hz max (5 ms).
         if ((now - last_send_ms) >= 5) {
             if (send_joystick_report(&report)) {
                 last_send_ms = now;

@@ -21,17 +21,10 @@ set(PROTOCOL "ibus" CACHE STRING "RC protocol: ibus (implemented) or sbus (defer
 string(TOLOWER "${PROTOCOL}" PROTOCOL)
 message(STATUS "Building for protocol: ${PROTOCOL}")
 
-# ── WS2812 pin override ────────────────────────────────────────────────────
-# Default is GP23 (YD-RP2040 v1.4). Some clones/revisions use GP16, GP12,
-# or GP25. Override on the CMake command line: -DWS2812_PIN=16
-set(WS2812_PIN "23" CACHE STRING "GPIO number the WS2812 is wired to")
-message(STATUS "WS2812 pin: GP${WS2812_PIN}")
-
 # ── Sources ────────────────────────────────────────────────────────────────
 set(SOURCES
     src/main.c
     src/usb_descriptors.c
-    src/rgb_led.c
 )
 
 if(PROTOCOL STREQUAL "sbus")
@@ -46,9 +39,6 @@ endif()
 # ── Executable ─────────────────────────────────────────────────────────────
 add_executable(rc_joystick ${SOURCES})
 
-# ── PIO header generation (WS2812 always; SBUS later) ─────────────────────
-pico_generate_pio_header(rc_joystick ${CMAKE_CURRENT_SOURCE_DIR}/src/ws2812.pio)
-
 # ── Include paths ──────────────────────────────────────────────────────────
 target_include_directories(rc_joystick PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}        # for tusb_config.h
@@ -56,17 +46,13 @@ target_include_directories(rc_joystick PRIVATE
 )
 
 # ── Compile definitions ────────────────────────────────────────────────────
-target_compile_definitions(rc_joystick PRIVATE
-    ${PROTOCOL_DEFINE}
-    WS2812_PIN_OVERRIDE=${WS2812_PIN}
-)
+target_compile_definitions(rc_joystick PRIVATE ${PROTOCOL_DEFINE})
 
 # ── Link libraries ─────────────────────────────────────────────────────────
+# hardware_pio / hardware_dma will be added back when the SBUS PIO branch lands.
 target_link_libraries(rc_joystick
     pico_stdlib
     hardware_uart
-    hardware_pio
-    hardware_dma
     tinyusb_device
     tinyusb_board
 )

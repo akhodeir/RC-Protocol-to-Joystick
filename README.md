@@ -21,13 +21,13 @@ speaks **iBUS** or **SBUS** works:
 - 32 buttons (aux switches CH9–CH14 mapped to buttons 0–5 by default)
 - Failsafe: axes center, throttle to minimum, buttons cleared if no valid frame
   is received for 500 ms
-- WS2812 status LED (on GP23 of the YD-RP2040) with five distinct states
+- On-board LED (GP25) shows status via blink cadence
 - USB HID compliant — no drivers needed on Windows, macOS, or Linux
 
 ## Hardware
 
-**Board:** YD-RP2040 (USB-C, on-board WS2812 on GP23). A standard Raspberry Pi
-Pico works too; you just won't have the status LED unless you wire one externally.
+**Board:** YD-RP2040 (USB-C, on-board LED on GP25). A standard Raspberry Pi
+Pico works too.
 
 **Receiver:** any FlySky / Radiolink / FrSky / OrangeRx unit with an iBUS output.
 Tested with FS-iA6B and FS-iA10B paired with an FS-i6X transmitter.
@@ -47,15 +47,13 @@ USB-C  ────────────────────────�
 The iBUS data line is 3.3 V-level — no level shifter needed. Do NOT connect the
 receiver's 5 V rail to the Pico 3V3 pin; it will fail to boot or brown out.
 
-## LED status legend (WS2812 on GP23)
+## Status LED (GP25)
 
-| Color                 | Meaning                                        |
-|-----------------------|------------------------------------------------|
-| Dim blue, pulsing     | Booting / USB not yet enumerated               |
-| Dim white             | USB ready, waiting for first iBUS frame        |
-| Dim green             | Normal operation — frames arriving             |
-| Bright green flash    | All four primary sticks within ±2 % of center  |
-| Solid red             | Failsafe: no valid frame for > 500 ms          |
+| Pattern                 | Meaning                                   |
+|-------------------------|-------------------------------------------|
+| Fast blink (100 ms)     | Booting / USB not yet enumerated          |
+| Slow blink (500 ms)     | USB ready, waiting for iBUS frames (or failsafe) |
+| Solid on                | Frames arriving normally                  |
 
 ## Build
 
@@ -85,13 +83,6 @@ make -j$(sysctl -n hw.ncpu)
 
 Output: `build/rc_joystick.uf2` (~43 KB).
 
-If your board's WS2812 lives on a different pin (some clones use GP16 or GP12),
-override at configure time:
-
-```bash
-cmake .. -DPROTOCOL=ibus -DWS2812_PIN=16
-```
-
 ## Flash
 
 **BOOTSEL method** (works on any RP2040 board):
@@ -107,8 +98,9 @@ picotool load build/rc_joystick.uf2 -f && picotool reboot
 
 ## Verify
 
-1. Plug in the flashed Pico. The RGB LED should pulse blue briefly, then go
-   dim white once macOS enumerates the HID device.
+1. Plug in the flashed Pico. The on-board LED (GP25) should blink rapidly
+   (100 ms) while USB enumerates, then slow to 500 ms once macOS mounts the
+   HID device.
 
 2. Open **https://gamepad-tester.com/** in Chrome, Firefox, or Safari, then
    move any stick / press any switch to wake the page's Gamepad API listener.
@@ -123,9 +115,9 @@ picotool load build/rc_joystick.uf2 -f && picotool reboot
 
 5. Bind the receiver and transmitter (procedure varies by receiver — most
    FlySky receivers: hold the button while powering it, then start bind mode
-   on the transmitter). Once bound, the RGB LED turns green in normal
-   operation and briefly flashes bright green whenever all four primary
-   sticks return to center — handy for trim checks.
+   on the transmitter). Once bound, the on-board LED goes solid on in normal
+   operation. If iBUS frames stop for > 500 ms, the LED drops back to the
+   500 ms "waiting" blink and the report enters failsafe.
 
 ## Channel to axis mapping
 
@@ -150,11 +142,9 @@ rc-joystick/
 ├── tusb_config.h
 ├── README.md
 ├── src/
-│   ├── main.c                  Main loop, scaling, failsafe, LED state
+│   ├── main.c                  Main loop, scaling, failsafe, status LED
 │   ├── usb_descriptors.c/.h    HID descriptor + TinyUSB callbacks
-│   ├── ibus.c/.h               iBUS UART frame parser
-│   ├── rgb_led.c/.h            WS2812 status LED driver
-│   └── ws2812.pio              PIO program for WS2812 timing
+│   └── ibus.c/.h               iBUS UART frame parser
 └── tools/
     └── webhid/
         └── index.html          Custom WebHID tester (Chrome / Edge)
@@ -177,7 +167,7 @@ to see how others have solved adjacent problems:
 
 ## Roadmap
 
-- Done: iBUS + HID joystick + WS2812 status + failsafe + WebHID tester
+- Done: iBUS + HID joystick + on-board LED status + failsafe + WebHID tester
 - Next: SBUS support (PIO inverted UART) — enables FrSky, Radiolink, and the
   FS-iA10B's alternate output
 - Later: Persistent per-user axis inversion / mid-point trims via flash
