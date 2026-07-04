@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>FS-i6X RC-to-Joystick Tester</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel2: #1e232c;
+      --line: #2a3040;
+      --text: #d9e0ea;
+      --muted: #6b7383;
+      --accent: #5ab6ff;
+      --ok: #4ade80;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --bar-bg: #232a37;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "SF Pro Text", Inter, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    h1 { margin: 0; font-size: 22px; font-weight: 600; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--err);
+      box-shadow: 0 0 8px currentColor;
+    }
+    .dot.ok { background: var(--ok); }
+    button {
+      font: inherit;
+      background: var(--accent);
+      color: #0f1115;
+      border: 0;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.1); }
+    button.secondary { background: var(--panel2); color: var(--text); }
+    .grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 2fr 1fr;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .panel h2 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .axes-primary { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; }
+    .axes-aux { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 32px; margin-top: 8px; }
+    .axis {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .axis-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .axis-label { font-weight: 500; }
+    .axis-value {
+      font-family: "SF Mono", ui-monospace, "JetBrains Mono", Consolas, monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .bar {
+      height: 12px;
+      background: var(--bar-bg);
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .bar .mid {
+      position: absolute;
+      left: 50%;
+      top: 0; bottom: 0;
+      width: 1px;
+      background: var(--line);
+    }
+    .bar .fill {
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 50%;
+      background: linear-gradient(90deg, var(--accent), #7cd1ff);
+      transition: transform 40ms linear, width 40ms linear;
+      transform-origin: left center;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+    }
+    .btn {
+      aspect-ratio: 1;
+      background: var(--bar-bg);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: "SF Mono", ui-monospace, monospace;
+      transition: background 60ms;
+    }
+    .btn.on {
+      background: var(--ok);
+      color: #08120b;
+      font-weight: 700;
+      box-shadow: 0 0 8px rgba(74, 222, 128, 0.55);
+    }
+    .centered-flag {
+      display: inline-block;
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+      background: var(--bar-bg);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .centered-flag.on {
+      background: rgba(74, 222, 128, 0.15);
+      color: var(--ok);
+    }
+    .hex-dump {
+      font-family: "SF Mono", ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--bar-bg);
+      padding: 10px 12px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+    .stats { font-size: 12px; color: var(--muted); line-height: 1.7; }
+    .stats b { color: var(--text); font-weight: 500; }
+    .record-controls { display: flex; gap: 8px; margin-top: 8px; }
+    .empty {
+      padding: 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>FS-i6X RC-to-Joystick Tester</h1>
+      <div class="status">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">Disconnected</span>
+        <span id="rateText"></span>
+      </div>
+    </div>
+    <div>
+      <button id="connectBtn">Connect device</button>
+      <button id="disconnectBtn" class="secondary" style="display:none;">Disconnect</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Left column: axes and buttons -->
+    <div>
+      <div class="panel">
+        <h2>Primary axes <span id="centeredFlag" class="centered-flag" style="margin-left:8px;">not centered</span></h2>
+        <div class="axes-primary" id="axesPrimary"></div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <h2>Aux axes</h2>
+        <div class="axes-aux" id="axesAux"></div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <h2>Buttons (CH9–CH14 → 0–5, remaining reserved)</h2>
+        <div class="buttons" id="buttons"></div>
+      </div>
+    </div>
+
+    <!-- Right column: report + record -->
+    <div>
+      <div class="panel">
+        <h2>Device info</h2>
+        <div class="stats" id="deviceInfo">
+          <div class="empty">No device connected.</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <h2>Last report (raw)</h2>
+        <div class="hex-dump" id="hexDump">—</div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <h2>Record</h2>
+        <div class="stats">
+          Capture 10 seconds of report data and download as CSV.<br />
+          <span id="recordStatus">Idle.</span>
+        </div>
+        <div class="record-controls">
+          <button id="recordBtn">Start recording</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Tests a device with VID 0x2E8A / PID 0x000A over WebHID.
+    Requires Chrome, Edge, or another Chromium-based browser.
+    &nbsp;·&nbsp;
+    <a href="https://gamepad-tester.com/">gamepad-tester.com</a>
+    &nbsp;·&nbsp;
+    <a href="https://nondebug.github.io/webhid-explorer/">webhid-explorer</a>
+  </footer>
+
+  <script>
+    // ─── Layout definitions ────────────────────────────────────────────────
+    const PRIMARY_AXES = [
+      { key: "x",  label: "Roll (CH1)"     },
+      { key: "y",  label: "Pitch (CH2)"    },
+      { key: "z",  label: "Throttle (CH3)" },
+      { key: "rx", label: "Yaw (CH4)"      },
+    ];
+    const AUX_AXES = [
+      { key: "ry",     label: "Ry (CH5)"     },
+      { key: "rz",     label: "Rz (CH6)"     },
+      { key: "slider", label: "Slider (CH7)" },
+      { key: "dial",   label: "Dial (CH8)"   },
+    ];
+    const CENTERED_TOL = 655;   // ~2 % of ±32767
+
+    // ─── Build UI ──────────────────────────────────────────────────────────
+    function buildAxis(container, ax) {
+      const div = document.createElement("div");
+      div.className = "axis";
+      div.innerHTML = `
+        <div class="axis-row">
+          <span class="axis-label">${ax.label}</span>
+          <span class="axis-value" id="val-${ax.key}">0</span>
+        </div>
+        <div class="bar"><div class="mid"></div><div class="fill" id="fill-${ax.key}"></div></div>
+      `;
+      container.appendChild(div);
+    }
+    PRIMARY_AXES.forEach(a => buildAxis(document.getElementById("axesPrimary"), a));
+    AUX_AXES.forEach(a => buildAxis(document.getElementById("axesAux"), a));
+
+    const btnGrid = document.getElementById("buttons");
+    for (let i = 0; i < 32; i++) {
+      const b = document.createElement("div");
+      b.className = "btn";
+      b.id = `btn-${i}`;
+      b.textContent = i;
+      btnGrid.appendChild(b);
+    }
+
+    // ─── State ────────────────────────────────────────────────────────────
+    let device = null;
+    let lastReportMs = 0;
+    let frameCount = 0;
+    let rateStart = performance.now();
+    let recording = false;
+    let recordEnd = 0;
+    let recordRows = [];
+
+    // ─── Helpers ──────────────────────────────────────────────────────────
+    function setStatus(text, ok) {
+      document.getElementById("statusText").textContent = text;
+      document.getElementById("statusDot").classList.toggle("ok", !!ok);
+    }
+    function hex(view) {
+      const bytes = [];
+      for (let i = 0; i < view.byteLength; i++) {
+        bytes.push(view.getUint8(i).toString(16).padStart(2, "0"));
+      }
+      return bytes.join(" ");
+    }
+    function updateAxis(key, value) {
+      // value is int16 (-32768..32767); render as bar centered at 0
+      const pct = value / 32767;  // -1..1
+      const val = document.getElementById(`val-${key}`);
+      const fill = document.getElementById(`fill-${key}`);
+      if (!val || !fill) return;
+      val.textContent = value.toString().padStart(6, " ");
+      if (pct >= 0) {
+        fill.style.left = "50%";
+        fill.style.width = `${pct * 50}%`;
+      } else {
+        fill.style.left = `${50 + pct * 50}%`;
+        fill.style.width = `${-pct * 50}%`;
+      }
+    }
+    function updateButtons(mask) {
+      for (let i = 0; i < 32; i++) {
+        const on = (mask & (1 << i)) !== 0;
+        document.getElementById(`btn-${i}`).classList.toggle("on", on);
+      }
+    }
+    function updateCenteredFlag(vals) {
+      const centered = ["x", "y", "z", "rx"].every(k => Math.abs(vals[k]) < CENTERED_TOL);
+      const flag = document.getElementById("centeredFlag");
+      flag.classList.toggle("on", centered);
+      flag.textContent = centered ? "centered" : "not centered";
+    }
+    function updateRate() {
+      const elapsed = performance.now() - rateStart;
+      if (elapsed >= 500) {
+        const hz = (frameCount * 1000 / elapsed).toFixed(0);
+        document.getElementById("rateText").textContent = `· ${hz} Hz`;
+        rateStart = performance.now();
+        frameCount = 0;
+      }
+    }
+
+    // ─── HID report parsing ───────────────────────────────────────────────
+    // Report layout (20 bytes):
+    //   int16 x, y, z, rx, ry, rz, slider, dial   (little-endian)
+    //   uint32 buttons                            (little-endian)
+    function parseReport(view) {
+      return {
+        x:      view.getInt16(0, true),
+        y:      view.getInt16(2, true),
+        z:      view.getInt16(4, true),
+        rx:     view.getInt16(6, true),
+        ry:     view.getInt16(8, true),
+        rz:     view.getInt16(10, true),
+        slider: view.getInt16(12, true),
+        dial:   view.getInt16(14, true),
+        buttons: view.getUint32(16, true),
+      };
+    }
+
+    function onInputReport(event) {
+      const view = event.data;      // DataView (excludes reportId byte)
+      if (view.byteLength < 20) return;
+
+      const r = parseReport(view);
+      updateAxis("x", r.x); updateAxis("y", r.y); updateAxis("z", r.z); updateAxis("rx", r.rx);
+      updateAxis("ry", r.ry); updateAxis("rz", r.rz);
+      updateAxis("slider", r.slider); updateAxis("dial", r.dial);
+      updateButtons(r.buttons);
+      updateCenteredFlag(r);
+
+      document.getElementById("hexDump").textContent = hex(view);
+
+      frameCount++;
+      lastReportMs = performance.now();
+      updateRate();
+
+      if (recording) {
+        const t = (performance.now() / 1000).toFixed(3);
+        recordRows.push(`${t},${r.x},${r.y},${r.z},${r.rx},${r.ry},${r.rz},${r.slider},${r.dial},${r.buttons}`);
+        if (performance.now() >= recordEnd) finishRecording();
+      }
+    }
+
+    // ─── Connect / disconnect ─────────────────────────────────────────────
+    async function connect() {
+      if (!("hid" in navigator)) {
+        alert("WebHID isn't available in this browser. Use Chrome, Edge, or another Chromium browser.");
+        return;
+      }
+      const filters = [{ vendorId: 0x2E8A, productId: 0x000A }];
+      let devices;
+      try {
+        devices = await navigator.hid.requestDevice({ filters });
+      } catch (e) {
+        setStatus("Permission denied", false);
+        return;
+      }
+      if (devices.length === 0) return;
+      device = devices[0];
+      await device.open();
+      device.addEventListener("inputreport", onInputReport);
+      setStatus(`${device.productName || "Joystick"} connected`, true);
+      document.getElementById("connectBtn").style.display = "none";
+      document.getElementById("disconnectBtn").style.display = "inline-block";
+      renderDeviceInfo();
+    }
+
+    async function disconnect() {
+      if (device) {
+        try { await device.close(); } catch {}
+        device.removeEventListener("inputreport", onInputReport);
+        device = null;
+      }
+      setStatus("Disconnected", false);
+      document.getElementById("connectBtn").style.display = "inline-block";
+      document.getElementById("disconnectBtn").style.display = "none";
+      document.getElementById("rateText").textContent = "";
+      document.getElementById("deviceInfo").innerHTML = `<div class="empty">No device connected.</div>`;
+    }
+
+    function renderDeviceInfo() {
+      if (!device) return;
+      const infos = device.collections?.[0]?.inputReports || [];
+      let reportSize = 0;
+      infos.forEach(r => r.items?.forEach(item => {
+        reportSize += (item.reportCount || 0) * (item.reportSize || 0);
+      }));
+      const bits = reportSize;
+      const bytes = Math.ceil(bits / 8);
+      document.getElementById("deviceInfo").innerHTML = `
+        <b>Product</b>: ${device.productName || "?"}<br>
+        <b>VID / PID</b>: 0x${device.vendorId.toString(16).padStart(4, "0").toUpperCase()} /
+                         0x${device.productId.toString(16).padStart(4, "0").toUpperCase()}<br>
+        <b>Collection usage</b>: 0x${device.collections?.[0]?.usagePage?.toString(16) || "?"} /
+                                 0x${device.collections?.[0]?.usage?.toString(16) || "?"}<br>
+        <b>Input report size</b>: ${bits} bits (${bytes} bytes)
+      `;
+    }
+
+    // ─── Recording ────────────────────────────────────────────────────────
+    function startRecording() {
+      recording = true;
+      recordEnd = performance.now() + 10000;
+      recordRows = [ "t_s,x,y,z,rx,ry,rz,slider,dial,buttons" ];
+      document.getElementById("recordStatus").textContent = "Recording... 10s";
+      document.getElementById("recordBtn").disabled = true;
+    }
+    function finishRecording() {
+      recording = false;
+      document.getElementById("recordStatus").textContent = `Saved ${recordRows.length - 1} samples.`;
+      document.getElementById("recordBtn").disabled = false;
+      const blob = new Blob([recordRows.join("\n") + "\n"], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      a.download = `rc-joystick-${ts}.csv`;
+      a.click();
+    }
+
+    document.getElementById("connectBtn").onclick = connect;
+    document.getElementById("disconnectBtn").onclick = disconnect;
+    document.getElementById("recordBtn").onclick = () => { if (!recording) startRecording(); };
+
+    // Reconnect to previously-authorised device on load
+    if ("hid" in navigator) {
+      navigator.hid.getDevices().then(devs => {
+        const d = devs.find(dev => dev.vendorId === 0x2E8A && dev.productId === 0x000A);
+        if (d) {
+          device = d;
+          d.open().then(() => {
+            d.addEventListener("inputreport", onInputReport);
+            setStatus(`${d.productName || "Joystick"} connected`, true);
+            document.getElementById("connectBtn").style.display = "none";
+            document.getElementById("disconnectBtn").style.display = "inline-block";
+            renderDeviceInfo();
+          });
+        }
+      });
+    } else {
+      setStatus("WebHID not supported in this browser", false);
+    }
+  </script>
+</body>
+</html>
