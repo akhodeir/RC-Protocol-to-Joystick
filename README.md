@@ -54,8 +54,18 @@ receiver's 5 V rail to the Pico 3V3 pin; it will fail to boot or brown out.
 | Fast even blink (100/100 ms) | Booting / USB not yet enumerated |
 | Slow even blink (500/500 ms) | USB up, no bytes seen on the iBUS wire yet — receiver probably not connected or unpowered |
 | **3 rapid pulses + long pause** | Bytes arriving on the wire but no valid iBUS frames — check wiring, protocol, and receiver output mode (iBUS vs SBUS vs PPM) |
-| **2 rapid pulses + long pause** | Was receiving valid frames, then signal lost — failsafe engaged (transmitter off, out of range, etc.) |
-| Mostly on with brief 100 ms dip every 2 s | Healthy: valid iBUS frames arriving normally |
+| **4 rapid pulses + long pause** | Signal lost — either the receiver stopped sending frames, or channel values froze for > 1 s (transmitter turned off with receiver in "hold" mode) |
+| Mostly on with brief 100 ms dip every 2 s | Healthy: valid iBUS frames arriving with real (moving) channel values |
+
+### Note on iBUS failsafe
+
+Unlike SBUS (which has an explicit "signal lost" flag in every frame), iBUS
+has no way to signal that the transmitter dropped out. Many receivers
+(including the FS-iA6B) keep sending iBUS frames with **held** channel
+values when they lose the transmitter. To detect this, the firmware watches
+for all 14 channels being bit-identical for > 1 s — real stick input always
+jitters a little, so perfectly frozen values across the board mean the TX
+is off. This detection can be tuned via `CHANNEL_FREEZE_MS` in `src/main.c`.
 
 ## Build
 

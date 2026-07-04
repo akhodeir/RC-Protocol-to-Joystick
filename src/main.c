@@ -4,16 +4,20 @@
  * Reads FlySky iBUS on UART0 (GP1), maps 14 channels onto an 8-axis + 32-button
  * HID report, and blinks the on-board LED on GP25 to indicate status.
  *
- * Failsafe: if no valid frame is received for FAILSAFE_TIMEOUT_MS, all axes
- * center, throttle (Z) forces to minimum, and buttons clear.
+ * Failsafe: engaged when either
+ *   - no valid frame received for FAILSAFE_TIMEOUT_MS, OR
+ *   - all 14 channels stay bit-identical for CHANNEL_FREEZE_MS (transmitter off
+ *     with the receiver in "hold last value" mode — iBUS has no explicit
+ *     failsafe flag, so we detect it heuristically).
+ * On failsafe: all axes center, throttle (Z) forces to minimum, buttons clear.
  *
  * LED patterns on GP25 (each pattern is a repeating sequence of ON/OFF durations):
  *
  *   BOOT           fast even blink 100/100      USB not yet enumerated
  *   WAITING        slow even blink 500/500      USB up, no bytes ever on iBUS wire
  *   WRONG_WIRING   3 rapid pulses + pause       Bytes arriving but no valid iBUS frames
- *   FAILSAFE       2 rapid pulses + pause       Was receiving, then lost signal (>500 ms)
- *   ACTIVE         healthy heartbeat 1900/100   Valid iBUS frames arriving normally
+ *   FAILSAFE       4 rapid pulses + pause       Signal lost (frame timeout OR channel freeze)
+ *   ACTIVE         healthy heartbeat 1900/100   Valid iBUS frames with moving channels
  */
 #include <stdio.h>
 #include <string.h>
@@ -36,6 +40,7 @@
 #define STATUS_LED_PIN            25u    // YD-RP2040 on-board LED
 #define FAILSAFE_TIMEOUT_MS       500u   // valid-frame timeout before entering failsafe
 #define WIRE_ACTIVITY_MS          200u   // any raw byte within this window = "wire active"
+#define CHANNEL_FREEZE_MS         1000u  // all 14 channels bit-identical this long = TX off / hold mode
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Channel → axis scaling (int16 signed, -32767..32767)
@@ -74,7 +79,7 @@ typedef enum {
 static const uint16_t s_pattern_boot[]         = { 100, 100, 0 };
 static const uint16_t s_pattern_waiting[]      = { 500, 500, 0 };
 static const uint16_t s_pattern_wrong_wiring[] = { 80, 120, 80, 120, 80, 700, 0 };
-static const uint16_t s_pattern_failsafe[]     = { 100, 150, 100, 700, 0 };
+static const uint16_t s_pattern_failsafe[]     = { 60, 90, 60, 90, 60, 90, 60, 700, 0 };
 static const uint16_t s_pattern_active[]       = { 1900, 100, 0 };
 
 static const uint16_t *pattern_for(led_mode_t m) {
@@ -143,9 +148,12 @@ int main(void) {
     set_failsafe_report(&report);
 
     uint16_t channels[IBUS_NUM_CHANNELS] = {0};
-    bool     rc_active     = false;
-    uint32_t last_frame_ms = 0;
-    uint32_t last_send_ms  = 0;
+    uint16_t prev_channels[IBUS_NUM_CHANNELS] = {0};
+    bool     rc_active      = false;
+    uint32_t last_frame_ms  = 0;
+    uint32_t last_change_ms = 0;
+    bool     have_baseline  = false;   // set true after first frame is seen
+    uint32_t last_send_ms   = 0;
 
     while (true) {
         tud_task();
@@ -156,9 +164,34 @@ int main(void) {
         if (new_frame) {
             ibus_get_channels(channels, IBUS_NUM_CHANNELS);
             last_frame_ms = now;
+
+            // Channel-freeze detection: iBUS has no failsafe flag, so we watch
+            // for bit-identical channel values across all 14 channels. Real
+            // sticks jitter; perfectly frozen values for > CHANNEL_FREEZE_MS
+            // = transmitter off / receiver in hold mode.
+            if (!have_baseline) {
+                memcpy(prev_channels, channels, sizeof(prev_channels));
+                last_change_ms = now;
+                have_baseline = true;
+            } else {
+                bool any_change = false;
+                for (int i = 0; i < IBUS_NUM_CHANNELS; i++) {
+                    if (channels[i] != prev_channels[i]) {
+                        any_change = true;
+                        break;
+                    }
+                }
+                if (any_change) {
+                    memcpy(prev_channels, channels, sizeof(prev_channels));
+                    last_change_ms = now;
+                }
+            }
             rc_active = true;
         }
-        if (rc_active && (now - last_frame_ms) > FAILSAFE_TIMEOUT_MS) {
+        // Trip failsafe on frame-timeout OR channel-freeze
+        if (rc_active &&
+            ((now - last_frame_ms) > FAILSAFE_TIMEOUT_MS ||
+             (have_baseline && (now - last_change_ms) > CHANNEL_FREEZE_MS))) {
             rc_active = false;
         }
 
