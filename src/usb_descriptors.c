@@ -115,8 +115,8 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
 // ─────────────────────────────────────────────────────────────────────────────
 static const char *s_strings[] = {
     (const char[]){0x09, 0x04},   // 0: langid (en-US) — special-cased below
-    "FlySky",                     // 1: Manufacturer
-    "FS-i6X RC-to-Joystick",      // 2: Product
+    "rc-joystick",                // 1: Manufacturer
+    "RC-Joystick",                // 2: Product
     "000001",                     // 3: Serial
 };
 

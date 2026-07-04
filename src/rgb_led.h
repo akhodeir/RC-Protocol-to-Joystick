@@ -18,6 +18,9 @@ typedef enum {
 } rgb_state_t;
 
 // Initialise the WS2812 on the given GPIO. Uses pio1 (leaves pio0 free for future SBUS).
+// This also runs a brief self-test: red → green → blue → white, 500 ms each,
+// at full brightness. If you don't see this cycle, the LED is not wired to
+// this pin (or has no power).
 void rgb_led_init(unsigned int gpio);
 
 // Set the desired logical state. The internal update loop turns this into

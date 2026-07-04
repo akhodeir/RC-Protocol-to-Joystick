@@ -21,6 +21,12 @@ set(PROTOCOL "ibus" CACHE STRING "RC protocol: ibus (implemented) or sbus (defer
 string(TOLOWER "${PROTOCOL}" PROTOCOL)
 message(STATUS "Building for protocol: ${PROTOCOL}")
 
+# ── WS2812 pin override ────────────────────────────────────────────────────
+# Default is GP23 (YD-RP2040 v1.4). Some clones/revisions use GP16, GP12,
+# or GP25. Override on the CMake command line: -DWS2812_PIN=16
+set(WS2812_PIN "23" CACHE STRING "GPIO number the WS2812 is wired to")
+message(STATUS "WS2812 pin: GP${WS2812_PIN}")
+
 # ── Sources ────────────────────────────────────────────────────────────────
 set(SOURCES
     src/main.c
@@ -50,7 +56,10 @@ target_include_directories(rc_joystick PRIVATE
 )
 
 # ── Compile definitions ────────────────────────────────────────────────────
-target_compile_definitions(rc_joystick PRIVATE ${PROTOCOL_DEFINE})
+target_compile_definitions(rc_joystick PRIVATE
+    ${PROTOCOL_DEFINE}
+    WS2812_PIN_OVERRIDE=${WS2812_PIN}
+)
 
 # ── Link libraries ─────────────────────────────────────────────────────────
 target_link_libraries(rc_joystick

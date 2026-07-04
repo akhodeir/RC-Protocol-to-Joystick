@@ -26,7 +26,8 @@
   #error "This build requires PROTOCOL_IBUS. Use -DPROTOCOL=ibus."
 #endif
 
-#define RGB_LED_PIN               23u
+#define RGB_LED_PIN               WS2812_PIN_OVERRIDE
+#define HEARTBEAT_LED_PIN         25u    // YD-RP2040 on-board green LED (Pico convention)
 #define FAILSAFE_TIMEOUT_MS       500u
 #define CENTER_TOLERANCE          40   // ~2% of ±32767 → within ±640 counts feels tight;
                                        // apply against raw channel diff instead (see below)
@@ -68,6 +69,12 @@ static bool sticks_centered(const uint16_t *ch) {
 int main(void) {
     stdio_init_all();  // initialises clocks (harmless with stdio disabled)
 
+    // ── Heartbeat LED on GP25 (YD-RP2040 on-board green LED) ──────────────
+    // Independent of the WS2812 driver; if this blinks, firmware is alive.
+    gpio_init(HEARTBEAT_LED_PIN);
+    gpio_set_dir(HEARTBEAT_LED_PIN, GPIO_OUT);
+    gpio_put(HEARTBEAT_LED_PIN, 1);
+
     rgb_led_init(RGB_LED_PIN);
     rgb_led_set_state(RGB_STATE_BOOT);
 
@@ -81,10 +88,23 @@ int main(void) {
     bool     rc_active     = false;
     uint32_t last_frame_ms = 0;
     uint32_t last_send_ms  = 0;
+    uint32_t last_beat_ms  = 0;
+    bool     beat_on       = true;
 
     while (true) {
         // 1. USB stack
         tud_task();
+
+        // Heartbeat: toggle GP25 at 2 Hz so we can visually confirm the loop
+        // is running even if the WS2812 is not visible.
+        {
+            uint32_t now_hb = to_ms_since_boot(get_absolute_time());
+            if ((now_hb - last_beat_ms) >= 250) {
+                last_beat_ms = now_hb;
+                beat_on = !beat_on;
+                gpio_put(HEARTBEAT_LED_PIN, beat_on);
+            }
+        }
 
         // 2. Update LED animation state
         rgb_led_task();

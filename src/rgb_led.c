@@ -13,7 +13,7 @@
 #define WS2812_FREQ_HZ     800000  // standard WS2812/WS2812B rate
 #define WS2812_IS_RGBW     false
 
-static PIO  s_pio       = pio1;
+static PIO  s_pio       = pio0;  // was pio1; some boards behave differently
 static uint s_sm        = 0;
 static uint s_offset    = 0;
 static bool s_inited    = false;
@@ -39,7 +39,25 @@ void rgb_led_init(unsigned int gpio) {
     s_offset = pio_add_program(s_pio, &ws2812_program);
     ws2812_program_init(s_pio, s_sm, s_offset, gpio, WS2812_FREQ_HZ, WS2812_IS_RGBW);
     s_inited = true;
-    rgb_led_set_rgb(0, 0, 0);  // start dark
+
+    // Give the WS2812 time to power up + observe > 50 µs LOW reset gap
+    // before its first data burst.
+    sleep_ms(100);
+
+    // ── Boot-time self-test ────────────────────────────────────────────
+    // Cycle R → G → B → W at full brightness, 500 ms each, so we can see
+    // the LED responds at all before entering the normal state machine.
+    // Send each color 3× to guarantee the WS2812 latches even if the very
+    // first burst is corrupted by a floating-line startup transition.
+    for (int i = 0; i < 3; i++) rgb_led_set_rgb(255, 0,   0);
+    sleep_ms(500);
+    for (int i = 0; i < 3; i++) rgb_led_set_rgb(0,   255, 0);
+    sleep_ms(500);
+    for (int i = 0; i < 3; i++) rgb_led_set_rgb(0,   0,   255);
+    sleep_ms(500);
+    for (int i = 0; i < 3; i++) rgb_led_set_rgb(200, 200, 200);
+    sleep_ms(500);
+    for (int i = 0; i < 3; i++) rgb_led_set_rgb(0,   0,   0);
 }
 
 void rgb_led_set_state(rgb_state_t state) {
@@ -60,34 +78,34 @@ void rgb_led_task(void) {
 
     switch (s_state) {
         case RGB_STATE_BOOT: {
-            // Triangular pulse 0 → 40 → 0 on blue channel
+            // Triangular pulse 0 → 120 → 0 on blue channel (visible in daylight)
             s_pulse_phase += 4;
-            uint8_t v = s_pulse_phase < 128 ? s_pulse_phase / 4 : (255 - s_pulse_phase) / 4;
+            uint8_t v = s_pulse_phase < 128 ? s_pulse_phase : (255 - s_pulse_phase);
             rgb_led_set_rgb(0, 0, v);
             break;
         }
         case RGB_STATE_READY:
-            rgb_led_set_rgb(6, 6, 6);   // dim white
+            rgb_led_set_rgb(40, 40, 40);   // dim white — visible but not glaring
             break;
 
         case RGB_STATE_ACTIVE:
-            rgb_led_set_rgb(0, 20, 0);  // dim green — steady when frames arrive
+            rgb_led_set_rgb(0, 60, 0);     // dim green — steady when frames arrive
             break;
 
         case RGB_STATE_CENTERED:
             if (s_flash_ms == 0) s_flash_ms = now;
             if (now - s_flash_ms < 200) {
-                rgb_led_set_rgb(0, 120, 0);  // bright green flash
+                rgb_led_set_rgb(0, 200, 0);  // bright green flash
             } else if (now - s_flash_ms < 400) {
-                rgb_led_set_rgb(0, 20, 0);   // back to dim green
+                rgb_led_set_rgb(0, 60, 0);   // back to normal green
             } else {
-                s_flash_ms = 0;  // ready to flash again on re-entry
+                s_flash_ms = 0;
                 s_state = RGB_STATE_ACTIVE;
             }
             break;
 
         case RGB_STATE_FAILSAFE:
-            rgb_led_set_rgb(60, 0, 0);  // solid red
+            rgb_led_set_rgb(120, 0, 0);    // solid red — hard to miss
             break;
     }
 }
