@@ -152,10 +152,17 @@ rc-joystick/
 
 ## References & prior art
 
-Two open-source projects were studied while building this one. Neither is a
-dependency — they're worth a look if you're extending this project or want
-to see how others have solved adjacent problems:
+Two open-source projects were studied while building this one, plus one
+web tool that proved essential during descriptor debugging. Neither project
+is a dependency — they're worth a look if you're extending this project or
+want to see how others have solved adjacent problems:
 
+- **[nondebug/webhid-explorer](https://nondebug.github.io/webhid-explorer/)** — 
+  Live at the linked URL (source: `github.com/nondebug/webhid-explorer`).
+  Browser-based WebHID debugger by François Beaufort. Parses the HID report
+  descriptor tree, dumps raw input reports as hex, decodes fields per-report.
+  **Invaluable for verifying a custom HID descriptor is well-formed** — was
+  the single most useful external tool while bringing up this firmware.
 - **[wiredopposite/OGX-Mini](https://github.com/wiredopposite/OGX-Mini)** —
   RP2040 firmware that emulates USB gamepads for Xbox / PlayStation / Switch
   consoles. Excellent reference for TinyUSB device-driver patterns and HID
