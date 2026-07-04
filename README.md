@@ -49,11 +49,13 @@ receiver's 5 V rail to the Pico 3V3 pin; it will fail to boot or brown out.
 
 ## Status LED (GP25)
 
-| Pattern                 | Meaning                                   |
-|-------------------------|-------------------------------------------|
-| Fast blink (100 ms)     | Booting / USB not yet enumerated          |
-| Slow blink (500 ms)     | USB ready, waiting for iBUS frames (or failsafe) |
-| Solid on                | Frames arriving normally                  |
+| Pattern | Meaning |
+|---|---|
+| Fast even blink (100/100 ms) | Booting / USB not yet enumerated |
+| Slow even blink (500/500 ms) | USB up, no bytes seen on the iBUS wire yet — receiver probably not connected or unpowered |
+| **3 rapid pulses + long pause** | Bytes arriving on the wire but no valid iBUS frames — check wiring, protocol, and receiver output mode (iBUS vs SBUS vs PPM) |
+| **2 rapid pulses + long pause** | Was receiving valid frames, then signal lost — failsafe engaged (transmitter off, out of range, etc.) |
+| Mostly on with brief 100 ms dip every 2 s | Healthy: valid iBUS frames arriving normally |
 
 ## Build
 
@@ -100,7 +102,7 @@ picotool load build/rc_joystick.uf2 -f && picotool reboot
 
 1. Plug in the flashed Pico. The on-board LED (GP25) should blink rapidly
    (100 ms) while USB enumerates, then slow to 500 ms once macOS mounts the
-   HID device.
+   HID device — that's the "USB up, no iBUS wire activity yet" state.
 
 2. Open **https://gamepad-tester.com/** in Chrome, Firefox, or Safari, then
    move any stick / press any switch to wake the page's Gamepad API listener.
@@ -115,9 +117,10 @@ picotool load build/rc_joystick.uf2 -f && picotool reboot
 
 5. Bind the receiver and transmitter (procedure varies by receiver — most
    FlySky receivers: hold the button while powering it, then start bind mode
-   on the transmitter). Once bound, the on-board LED goes solid on in normal
-   operation. If iBUS frames stop for > 500 ms, the LED drops back to the
-   500 ms "waiting" blink and the report enters failsafe.
+   on the transmitter). Once bound, the on-board LED enters the healthy
+   "mostly on with a brief dip every 2 s" pattern. If iBUS frames stop for
+   more than 500 ms the LED switches to the 2-pulse failsafe pattern and the
+   report enters failsafe.
 
 ## Channel to axis mapping
 

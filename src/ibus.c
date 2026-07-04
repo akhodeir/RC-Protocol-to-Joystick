@@ -18,6 +18,7 @@ static uint8_t  s_pos = 0;
 
 static uint16_t s_channels[IBUS_NUM_CHANNELS];
 static bool     s_lock = false;
+static uint32_t s_last_byte_ms = 0;
 
 void ibus_init(uart_inst_t *uart, unsigned int rx_pin) {
     s_uart = uart;
@@ -49,6 +50,7 @@ bool ibus_update(void) {
 
     while (uart_is_readable(s_uart)) {
         uint8_t b = uart_getc(s_uart);
+        s_last_byte_ms = to_ms_since_boot(get_absolute_time());
 
         if (s_pos == 0) {
             if (b == IBUS_HEADER_0) s_buf[s_pos++] = b;
@@ -85,4 +87,8 @@ bool ibus_get_channels(uint16_t *out, uint n) {
 
 bool ibus_has_lock(void) {
     return s_lock;
+}
+
+uint32_t ibus_last_byte_ms(void) {
+    return s_last_byte_ms;
 }

@@ -31,4 +31,10 @@ bool ibus_get_channels(uint16_t *out, uint n);
 // True once at least one valid frame has been received.
 bool ibus_has_lock(void);
 
+// Timestamp (ms since boot) of the last raw byte read from the UART, regardless
+// of whether it was part of a valid frame. Returns 0 if no byte ever arrived.
+// Useful for distinguishing "no wire activity" from "bytes present but no valid
+// iBUS frames" (e.g., wrong protocol or wiring).
+uint32_t ibus_last_byte_ms(void);
+
 #endif /* IBUS_H */

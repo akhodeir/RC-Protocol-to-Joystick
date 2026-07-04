@@ -7,10 +7,13 @@
  * Failsafe: if no valid frame is received for FAILSAFE_TIMEOUT_MS, all axes
  * center, throttle (Z) forces to minimum, and buttons clear.
  *
- * LED patterns on GP25:
- *   - Fast (100 ms) blink : USB not yet enumerated
- *   - Slow (500 ms) blink : USB enumerated, waiting for iBUS frames (or failsafe)
- *   - Solid on            : Frames arriving normally
+ * LED patterns on GP25 (each pattern is a repeating sequence of ON/OFF durations):
+ *
+ *   BOOT           fast even blink 100/100      USB not yet enumerated
+ *   WAITING        slow even blink 500/500      USB up, no bytes ever on iBUS wire
+ *   WRONG_WIRING   3 rapid pulses + pause       Bytes arriving but no valid iBUS frames
+ *   FAILSAFE       2 rapid pulses + pause       Was receiving, then lost signal (>500 ms)
+ *   ACTIVE         healthy heartbeat 1900/100   Valid iBUS frames arriving normally
  */
 #include <stdio.h>
 #include <string.h>
@@ -30,8 +33,9 @@
   #error "This build requires PROTOCOL_IBUS. Use -DPROTOCOL=ibus."
 #endif
 
-#define STATUS_LED_PIN            25u    // YD-RP2040 on-board LED (Pico convention)
-#define FAILSAFE_TIMEOUT_MS       500u
+#define STATUS_LED_PIN            25u    // YD-RP2040 on-board LED
+#define FAILSAFE_TIMEOUT_MS       500u   // valid-frame timeout before entering failsafe
+#define WIRE_ACTIVITY_MS          200u   // any raw byte within this window = "wire active"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Channel → axis scaling (int16 signed, -32767..32767)
@@ -44,43 +48,81 @@ static inline int16_t scale_axis(uint16_t raw) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fill a failsafe report — all centered, throttle to min, buttons clear.
+// Failsafe report — all centered, throttle to min, buttons clear.
 // ─────────────────────────────────────────────────────────────────────────────
 static void set_failsafe_report(joystick_report_t *r) {
     memset(r, 0, sizeof(*r));
-    r->z = -32767;  // throttle bottomed
+    r->z = -32767;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Status LED driver: pick a blink cadence based on current mode.
-//   USB not mounted         → 100 ms fast blink
-//   Mounted, no frames yet  → 500 ms slow blink
-//   Mounted, frames active  → solid on
+// LED pattern engine
+//
+// Each mode is a small ON/OFF sequence in milliseconds. The driver walks
+// through the sequence and loops. The sequence terminates with a 0-length
+// entry to mark the loop point.
 // ─────────────────────────────────────────────────────────────────────────────
 typedef enum {
-    LED_MODE_BOOT,     // USB not enumerated
-    LED_MODE_WAITING,  // USB up, no iBUS lock
-    LED_MODE_ACTIVE,   // Frames arriving
+    LED_MODE_BOOT,           // USB not enumerated
+    LED_MODE_WAITING,        // USB up, no bytes on iBUS wire yet
+    LED_MODE_WRONG_WIRING,   // Bytes arriving but no valid frames — bad wiring / protocol
+    LED_MODE_FAILSAFE,       // Was receiving valid frames, now signal lost
+    LED_MODE_ACTIVE,         // Valid frames arriving
 } led_mode_t;
 
-static void status_led_update(led_mode_t mode) {
-    static uint32_t last_ms = 0;
-    static bool on = false;
-    uint32_t now = to_ms_since_boot(get_absolute_time());
-    uint32_t period = 0;
+// Each pattern is {on, off, on, off, ..., 0} — the 0 marks end / restart.
+static const uint16_t s_pattern_boot[]         = { 100, 100, 0 };
+static const uint16_t s_pattern_waiting[]      = { 500, 500, 0 };
+static const uint16_t s_pattern_wrong_wiring[] = { 80, 120, 80, 120, 80, 700, 0 };
+static const uint16_t s_pattern_failsafe[]     = { 100, 150, 100, 700, 0 };
+static const uint16_t s_pattern_active[]       = { 1900, 100, 0 };
 
-    switch (mode) {
-        case LED_MODE_BOOT:    period = 100; break;
-        case LED_MODE_WAITING: period = 500; break;
-        case LED_MODE_ACTIVE:
-            if (!on) { on = true; gpio_put(STATUS_LED_PIN, 1); }
-            return;
+static const uint16_t *pattern_for(led_mode_t m) {
+    switch (m) {
+        case LED_MODE_BOOT:         return s_pattern_boot;
+        case LED_MODE_WAITING:      return s_pattern_waiting;
+        case LED_MODE_WRONG_WIRING: return s_pattern_wrong_wiring;
+        case LED_MODE_FAILSAFE:     return s_pattern_failsafe;
+        case LED_MODE_ACTIVE:       return s_pattern_active;
+    }
+    return s_pattern_boot;
+}
+
+static void status_led_update(led_mode_t mode) {
+    static led_mode_t last_mode = LED_MODE_BOOT;
+    static uint8_t    idx = 0;
+    static uint32_t   step_start_ms = 0;
+    static bool       on = false;
+
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+
+    // Mode change → restart the sequence from the beginning
+    if (mode != last_mode) {
+        last_mode = mode;
+        idx = 0;
+        step_start_ms = now;
+        on = true;
+        gpio_put(STATUS_LED_PIN, 1);
+        return;
     }
 
-    if ((now - last_ms) >= period) {
-        last_ms = now;
-        on = !on;
-        gpio_put(STATUS_LED_PIN, on);
+    const uint16_t *pat = pattern_for(mode);
+    uint16_t dur = pat[idx];
+    if (dur == 0) {  // end-of-pattern → restart
+        idx = 0;
+        dur = pat[0];
+        on = true;
+        gpio_put(STATUS_LED_PIN, 1);
+        step_start_ms = now;
+        return;
+    }
+
+    if ((now - step_start_ms) >= dur) {
+        idx++;
+        if (pat[idx] == 0) idx = 0;  // wrap
+        on = !on;                     // even indexes are ON, odd are OFF (starting with ON)
+        gpio_put(STATUS_LED_PIN, (idx % 2) == 0);
+        step_start_ms = now;
     }
 }
 
@@ -88,7 +130,7 @@ static void status_led_update(led_mode_t mode) {
 // main
 // ─────────────────────────────────────────────────────────────────────────────
 int main(void) {
-    stdio_init_all();  // initialises clocks (harmless with stdio disabled)
+    stdio_init_all();
 
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
@@ -106,10 +148,8 @@ int main(void) {
     uint32_t last_send_ms  = 0;
 
     while (true) {
-        // 1. USB stack
         tud_task();
 
-        // 2. Read iBUS
         bool new_frame = ibus_update();
         uint32_t now = to_ms_since_boot(get_absolute_time());
 
@@ -118,18 +158,31 @@ int main(void) {
             last_frame_ms = now;
             rc_active = true;
         }
-
-        // 3. Failsafe timeout
         if (rc_active && (now - last_frame_ms) > FAILSAFE_TIMEOUT_MS) {
             rc_active = false;
         }
 
-        // 4. Status LED
-        led_mode_t mode = LED_MODE_BOOT;
-        if (tud_mounted()) mode = rc_active ? LED_MODE_ACTIVE : LED_MODE_WAITING;
+        // ── Decide LED mode ────────────────────────────────────────────────
+        led_mode_t mode;
+        if (!tud_mounted()) {
+            mode = LED_MODE_BOOT;
+        } else if (rc_active) {
+            mode = LED_MODE_ACTIVE;
+        } else {
+            uint32_t last_byte = ibus_last_byte_ms();
+            bool wire_recent = last_byte != 0 && (now - last_byte) < WIRE_ACTIVITY_MS;
+            bool ever_locked = ibus_has_lock();
+            if (ever_locked) {
+                mode = LED_MODE_FAILSAFE;      // was working, now signal lost
+            } else if (wire_recent) {
+                mode = LED_MODE_WRONG_WIRING;  // bytes but never a valid frame
+            } else {
+                mode = LED_MODE_WAITING;       // nothing on wire
+            }
+        }
         status_led_update(mode);
 
-        // 5. Build the HID report
+        // ── Build HID report ───────────────────────────────────────────────
         if (!rc_active) {
             set_failsafe_report(&report);
         } else {
@@ -148,11 +201,9 @@ int main(void) {
             report.buttons = btns;
         }
 
-        // 6. Send HID report at ~200 Hz max (5 ms).
+        // ── Send HID at ~200 Hz max ────────────────────────────────────────
         if ((now - last_send_ms) >= 5) {
-            if (send_joystick_report(&report)) {
-                last_send_ms = now;
-            }
+            if (send_joystick_report(&report)) last_send_ms = now;
         }
     }
     return 0;
