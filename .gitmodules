@@ -1,0 +1,6 @@
+[submodule "lib/OGX-Mini"]
+	path = lib/OGX-Mini
+	url = https://github.com/wiredopposite/OGX-Mini.git
+[submodule "lib/rpi-pico-fs-ia6"]
+	path = lib/rpi-pico-fs-ia6
+	url = https://github.com/danylog/rpi-pico-fs-ia6.git

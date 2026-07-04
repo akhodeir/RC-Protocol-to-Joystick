@@ -67,3 +67,19 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# macOS
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Pico firmware artifacts
+*.uf2
+*.elf
+*.bin
+*.hex
+*.map
+*.dis
