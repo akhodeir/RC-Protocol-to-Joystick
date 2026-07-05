@@ -22,8 +22,15 @@
 #define SBUS_FLAG_FRAMELOST  0x04
 #define SBUS_FLAG_FAILSAFE   0x08
 
+// UART framing variant. Standard SBUS is 8E2, but some clone receivers
+// emit 8N2 (no parity). Try 8E2 first; fall back to 8N2 in autodetect.
+typedef enum {
+    SBUS_PARITY_EVEN = 0,  // standard 8E2
+    SBUS_PARITY_NONE = 1,  // relaxed 8N2 fallback
+} sbus_parity_t;
+
 // Initialise the UART for SBUS. Receive-only.
-void sbus_init(uart_inst_t *uart, unsigned int rx_pin);
+void sbus_init(uart_inst_t *uart, unsigned int rx_pin, sbus_parity_t parity);
 
 // Tear down: deinit UART and clear the pad inversion. Call before switching
 // to a different protocol on the same pin.

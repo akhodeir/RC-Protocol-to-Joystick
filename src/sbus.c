@@ -20,10 +20,11 @@ static uint8_t  s_flags = 0;
 static bool     s_lock = false;
 static uint32_t s_last_byte_ms = 0;
 
-void sbus_init(uart_inst_t *uart, unsigned int rx_pin) {
+void sbus_init(uart_inst_t *uart, unsigned int rx_pin, sbus_parity_t parity) {
     s_uart = uart;
     uart_init(uart, 100000);
-    uart_set_format(uart, 8, 2, UART_PARITY_EVEN);
+    uart_set_format(uart, 8, 2,
+                    (parity == SBUS_PARITY_EVEN) ? UART_PARITY_EVEN : UART_PARITY_NONE);
     uart_set_fifo_enabled(uart, true);
     // SBUS is inverted; flip at the pad so the PL011 sees standard polarity.
     gpio_set_inover(rx_pin, GPIO_OVERRIDE_INVERT);
