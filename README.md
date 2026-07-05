@@ -146,18 +146,15 @@ picotool load build/rc_joystick.uf2 -f && picotool reboot
    fast BOOT cadence during USB enumeration, then slow to the 1 s WAITING
    blink once macOS mounts the HID device — no receiver connected yet.
 
-2. Open **https://gamepad-tester.com/** in Chrome, Firefox, or Safari, then
-   move any stick / press any switch to wake the page's Gamepad API listener.
-   All 8 axes and buttons should respond.
-
-3. For descriptor-level debugging (Chrome / Edge only), open
+2. For descriptor-level debugging (Chrome / Edge only), open
    **https://nondebug.github.io/webhid-explorer/** and select the RC-Joystick
    device — you'll see the parsed HID descriptor tree and raw report bytes.
 
-4. For a sim-styled visualiser tailored to this project, open
-   `tools/webhid/index.html` in Chrome or Edge.
+3. For a sim-styled visualiser tailored to this project, open
+   `tools/webhid/index.html` in Chrome or Edge — labelled bars for each axis,
+   button LEDs, live report rate, and a 10-second CSV recording button.
 
-5. Bind the receiver and transmitter (procedure varies by receiver — most
+4. Bind the receiver and transmitter (procedure varies by receiver — most
    FlySky receivers: hold the button while powering it, then start bind mode
    on the transmitter). Once bound, the on-board LED enters the healthy
    nearly-solid `ACTIVE` pattern. If the TX drops for > 500 ms or channels
