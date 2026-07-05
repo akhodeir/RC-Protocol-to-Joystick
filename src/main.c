@@ -133,8 +133,9 @@ int main(void) {
 
     tusb_init();
 
-    // Bring up SBUS on the shared RC pin. Standard 8E2 first; if you need
-    // to try the 8N2 variant, change the last argument to SBUS_PARITY_NONE.
+    // Bring up SBUS on the shared RC pin. Standard 8E2 with pad-level
+    // inversion. (Earlier attempts appeared broken because a bug in the
+    // sbus_init ordering was silently clearing the pad INOVER — fixed now.)
     sbus_init(RC_UART, RC_RX_PIN, SBUS_PARITY_EVEN);
 
     uint16_t channels[SBUS_NUM_CHANNELS] = {0};

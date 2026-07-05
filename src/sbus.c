@@ -26,9 +26,11 @@ void sbus_init(uart_inst_t *uart, unsigned int rx_pin, sbus_parity_t parity) {
     uart_set_format(uart, 8, 2,
                     (parity == SBUS_PARITY_EVEN) ? UART_PARITY_EVEN : UART_PARITY_NONE);
     uart_set_fifo_enabled(uart, true);
-    // SBUS is inverted; flip at the pad so the PL011 sees standard polarity.
-    gpio_set_inover(rx_pin, GPIO_OVERRIDE_INVERT);
+    // ORDER MATTERS: gpio_set_function() does a full register write on
+    // IO_BANK0_CTRL, zeroing INOVER. So route the pin to UART first, THEN
+    // apply the pad inversion — otherwise the invert is silently wiped.
     gpio_set_function(rx_pin, GPIO_FUNC_UART);
+    gpio_set_inover(rx_pin, GPIO_OVERRIDE_INVERT);
 }
 
 void sbus_deinit(uart_inst_t *uart, unsigned int rx_pin) {

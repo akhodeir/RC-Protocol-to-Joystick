@@ -25,9 +25,10 @@ void ibus_init(uart_inst_t *uart, unsigned int rx_pin) {
     uart_init(uart, 115200);
     uart_set_format(uart, 8, 1, UART_PARITY_NONE);
     uart_set_fifo_enabled(uart, true);
-    // Clear any pad inversion left over from a prior SBUS attempt.
-    gpio_set_inover(rx_pin, GPIO_OVERRIDE_NORMAL);
+    // Set function first (zeroes CTRL), then explicitly clear INOVER in case
+    // a prior SBUS attempt left the pad inverted. Order matches sbus_init.
     gpio_set_function(rx_pin, GPIO_FUNC_UART);
+    gpio_set_inover(rx_pin, GPIO_OVERRIDE_NORMAL);
     // Receive-only: no TX pin configured.
 }
 
