@@ -205,7 +205,24 @@ static bool try_protocol(protocol_t p, uint32_t timeout_ms) {
     uint32_t start = to_ms_since_boot(get_absolute_time());
     while (to_ms_since_boot(get_absolute_time()) - start < timeout_ms) {
         tud_task();
-        status_led_update(tud_mounted() ? LED_MODE_WAITING : LED_MODE_BOOT);
+
+        // LED during detection: WRONG_WIRING if bytes are arriving but we
+        // haven't locked yet — helps the user see "signal is on the wire
+        // but not valid for the current protocol attempt".
+        led_mode_t detect_mode = LED_MODE_WAITING;
+        if (!tud_mounted()) {
+            detect_mode = LED_MODE_BOOT;
+        } else {
+            uint32_t last_byte = (p == PROTO_IBUS)
+                                    ? ibus_last_byte_ms()
+                                    : sbus_last_byte_ms();
+            uint32_t now = to_ms_since_boot(get_absolute_time());
+            if (last_byte != 0 && (now - last_byte) < WIRE_ACTIVITY_MS) {
+                detect_mode = LED_MODE_WRONG_WIRING;
+            }
+        }
+        status_led_update(detect_mode);
+
         bool locked = (p == PROTO_IBUS) ? ibus_update() : sbus_update();
         if (locked) return true;
     }
