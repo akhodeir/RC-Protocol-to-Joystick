@@ -7,8 +7,9 @@ project(rc_joystick C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-# YD-RP2040 is not a first-class PICO_BOARD in the SDK; we use "pico" and
-# declare our own pin assignments in code. USB is on-chip either way.
+# Original Raspberry Pi Pico (RP2040). Uses PICO_BOARD=pico by default.
+# The firmware runs identically on other RP2040 boards (YD-RP2040 etc.)
+# — GP1 for RC input, GP25 for status LED works on any of them.
 if(NOT DEFINED PICO_BOARD)
     set(PICO_BOARD "pico")
 endif()

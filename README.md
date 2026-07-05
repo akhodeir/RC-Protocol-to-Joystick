@@ -33,8 +33,10 @@ receiver speaking either protocol works:
 
 ## Hardware
 
-**Board:** YD-RP2040 (USB-C, on-board LED on GP25). A standard Raspberry Pi
-Pico works too.
+**Board:** Original **Raspberry Pi Pico** (RP2040, micro-USB, on-board green
+LED on GP25). Any other RP2040 board with GP25 as the status-LED pin will
+also work (YD-RP2040, RP2040-Zero, etc.) — the firmware doesn't rely on
+any board-specific pinout.
 
 **Receiver:** any FlySky / Radiolink / FrSky / OrangeRx unit with an iBUS or
 SBUS output. Tested with FS-iA6B (iBUS) and FS-iA10B (iBUS + SBUS) paired
@@ -46,13 +48,13 @@ Same wiring for iBUS **or** SBUS — the firmware auto-detects which one your
 receiver is speaking.
 
 ```
-Receiver (iBUS or SBUS port)          YD-RP2040 (or Pi Pico)
+Receiver (iBUS or SBUS port)          Raspberry Pi Pico
 ─────────────────────────────────────────────────────────────
 Signal wire      ─────────────────→   GP1  (UART0 RX, pin 2)
 +5 V (VCC)       ─────────────────→   VBUS (pin 40)
 GND              ─────────────────→   GND  (pin 3 or 38)
 
-USB-C  ───────────────────────────→   Host PC / Mac
+USB (micro-USB)  ─────────────────→   Host PC / Mac
 ```
 
 Both protocols are 3.3 V-level on the data wire — no level shifter needed.
@@ -163,7 +165,7 @@ Output: `build/rc_joystick.uf2` (~46 KB).
 
 **BOOTSEL method** (works on any RP2040 board):
 1. Hold the BOOT button on the Pico
-2. Plug in the USB-C cable
+2. Plug in the USB cable
 3. Release BOOT — the Pico mounts as an `RPI-RP2` drive
 4. Drag `build/rc_joystick.uf2` onto the drive; it will reboot into the new firmware
 
