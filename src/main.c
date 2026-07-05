@@ -10,12 +10,17 @@
  * The 14 (iBUS) or 16 (SBUS) raw channels are mapped onto an 8-axis + 32-button
  * HID report.
  *
- * Failsafe: engaged when any of
+ * Failsafe: an *internal* state — we detect signal loss for the LED and
+ * (in the future) any safety logic that needs it, but we DO NOT overwrite
+ * the outgoing HID report. The last real receiver values keep being sent
+ * so that a sim doesn't snap sticks to center mid-flight when the user
+ * simply holds the sticks steady. Triggers:
  *   - no valid frame for FAILSAFE_TIMEOUT_MS (500 ms), OR
- *   - all channels stay bit-identical for CHANNEL_FREEZE_MS (1000 ms — TX off
- *     with the receiver in "hold" mode; iBUS has no explicit failsafe flag), OR
- *   - (SBUS only) the frame's FAILSAFE or FRAMELOST flag bit is set.
- * On failsafe: all axes center, throttle (Z) to minimum, buttons clear.
+ *   - all channels stay bit-identical for CHANNEL_FREEZE_MS (5.5 s — TX off
+ *     with the receiver in "hold" mode), OR
+ *   - the SBUS FAILSAFE or FRAMELOST flag bit is set in the frame.
+ * On failsafe the LED transitions to the 4-pulse pattern; the report stays
+ * at its last real value.
  *
  * LED patterns on GP25 (durations sized for easy visual counting):
  *
@@ -361,9 +366,15 @@ int main(void) {
         status_led_update(mode);
 
         // ── Build HID report ───────────────────────────────────────────────
-        if (!rc_active) {
-            set_failsafe_report(&report);
-        } else {
+        // Only refresh the report when rc_active. On failsafe we DON'T
+        // overwrite it — the outgoing HID payload stays at the last
+        // real values from the receiver. That way, if you hold the sticks
+        // steady and the channel-freeze failsafe engages, the sim keeps
+        // seeing your held position instead of snapping back to center.
+        // Before the very first frame arrives, `report` holds the boot
+        // defaults set by set_failsafe_report() below (sticks centered,
+        // throttle bottomed) — a safe starting state.
+        if (rc_active) {
             report.x      = scale_axis(channels[0]);
             report.y      = scale_axis(channels[1]);
             report.z      = scale_axis(channels[2]);

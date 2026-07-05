@@ -103,28 +103,26 @@ The 5.5 s freeze threshold lets you hold sticks steady in real flight
 without falsely tripping failsafe. Tune via `CHANNEL_FREEZE_MS` in `src/main.c`.
 
 **HID output during failsafe** — the device does NOT disappear from the
-host. The firmware keeps sending reports at 200 Hz, but every report has
-this fixed payload:
+host, and the payload stays at **the last real values** received from the
+receiver. This is a deliberate change from a "safe zero" style failsafe
+because sims like Liftoff would otherwise snap the sticks to center any
+time the user held them still long enough to trigger the channel-freeze
+detector. Keeping the last values means:
 
-| HID field | Value | Meaning to the sim |
-|---|---|---|
-| X (Roll)         | 0        | Stick centered |
-| Y (Pitch)        | 0        | Stick centered |
-| **Z (Throttle)** | **-32767** | **Throttle bottomed** |
-| Rx (Yaw)         | 0        | Stick centered |
-| Ry / Rz / Slider / Dial | 0 | Aux at neutral |
-| Buttons 0–31     | all 0    | All switches released |
+- Hold the sticks steady for 10 seconds → nothing changes; sim keeps
+  seeing your held position
+- Turn off the transmitter → sim keeps seeing whatever position the sticks
+  were last in (the receiver's held-value output)
+- Unplug the receiver → sim keeps seeing the last frame from just before
+  disconnect
 
-Raw wire bytes: `00 00 00 00 01 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00`
-(Z = `0x8001` little-endian = -32767).
-
-This matches real-world FPV convention: **drop, don't wander** — safer
-than "hold last stick position", which could cause a runaway. In Liftoff
-the drone will level out and fall.
+Before the very first valid frame ever arrives (fresh boot, no receiver),
+the report is initialised to safe defaults: sticks centered, throttle at
+minimum, all buttons off — so the sim never sees uninitialised data.
 
 **Recovery** — as soon as valid frames with changing channel values start
-arriving again, `rc_active` flips back to true and real stick data resumes
-on the very next 5 ms send tick.
+arriving again, the report resumes tracking the sticks on the very next
+5 ms send tick.
 
 **Runtime re-detect** — if failsafe persists for > 10 s, the firmware
 silently re-runs protocol detection (tears down the current UART setup and
@@ -185,7 +183,7 @@ picotool load build/rc_joystick.uf2 -f && picotool reboot
    device — you'll see the parsed HID descriptor tree and raw report bytes.
 
 3. For a sim-styled visualiser tailored to this project, open
-   `tools/webhid/index.html` in Chrome or Edge — labelled bars for each axis,
+   `tools/webhid/rc_joystick.html` in Chrome or Edge — labelled bars for each axis,
    button LEDs, live report rate, and a 10-second CSV recording button.
 
 4. Bind the receiver and transmitter (procedure varies by receiver — most
@@ -227,7 +225,7 @@ rc-joystick/
 │   └── sbus.c/.h               SBUS UART parser (100000 8E2 inverted via pad)
 └── tools/
     └── webhid/
-        └── index.html          Custom WebHID tester (Chrome / Edge)
+        └── rc_joystick.html    Custom WebHID tester (Chrome / Edge)
 ```
 
 ## Notable implementation details

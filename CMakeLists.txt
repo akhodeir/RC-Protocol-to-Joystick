@@ -28,8 +28,7 @@ add_executable(rc_joystick
 
 # ── Include paths ──────────────────────────────────────────────────────────
 target_include_directories(rc_joystick PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}        # for tusb_config.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src    # for our headers
+    ${CMAKE_CURRENT_SOURCE_DIR}/src    # tusb_config.h and our headers
 )
 
 # ── Link libraries ─────────────────────────────────────────────────────────
