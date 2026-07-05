@@ -39,10 +39,11 @@
 #define RC_RX_PIN                 1u
 
 #define STATUS_LED_PIN            25u
-#define FAILSAFE_TIMEOUT_MS       500u
+#define FAILSAFE_TIMEOUT_MS       500u   // no frame arrivals for this long → failsafe
 #define WIRE_ACTIVITY_MS          200u
-#define CHANNEL_FREEZE_MS         1000u
+#define CHANNEL_FREEZE_MS         5500u  // frozen channels this long → failsafe (>5 s)
 #define DETECT_TIMEOUT_MS         300u    // per-protocol attempt window
+#define REDETECT_AFTER_FAILSAFE_MS 10000u // rerun protocol detect after 10 s of failsafe
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Protocol selection + scaling
@@ -257,18 +258,20 @@ int main(void) {
     tusb_init();
     detect_protocol();
 
-    const unsigned int NCH = protocol_num_channels();
-    uint16_t channels[SBUS_NUM_CHANNELS] = {0};        // sized for the larger of the two
+    unsigned int NCH = protocol_num_channels();      // may change on re-detect
+    uint16_t channels[SBUS_NUM_CHANNELS] = {0};      // sized for the larger of the two
     uint16_t prev_channels[SBUS_NUM_CHANNELS] = {0};
 
     joystick_report_t report;
     set_failsafe_report(&report);
 
-    bool     rc_active      = false;
-    uint32_t last_frame_ms  = 0;
-    uint32_t last_change_ms = 0;
-    bool     have_baseline  = false;
-    uint32_t last_send_ms   = 0;
+    bool     rc_active           = false;
+    uint32_t last_frame_ms       = 0;
+    uint32_t last_change_ms      = 0;
+    bool     have_baseline       = false;
+    uint32_t last_send_ms        = 0;
+    uint32_t failsafe_start_ms   = 0;    // when we entered the current failsafe
+    bool     redetected_this_fs  = false; // guard: only re-detect once per failsafe
 
     while (true) {
         tud_task();
@@ -303,6 +306,38 @@ int main(void) {
              (have_baseline && (now - last_change_ms) > CHANNEL_FREEZE_MS) ||
              active_sbus_flag_lost())) {
             rc_active = false;
+        }
+
+        // ── Re-detect after prolonged failsafe ─────────────────────────────
+        // If a valid frame was ever seen (protocol was locked) but we've been
+        // in failsafe for > REDETECT_AFTER_FAILSAFE_MS, tear down the current
+        // protocol and re-run detection. Lets the user swap iBUS ↔ SBUS
+        // receivers on the same wire without power-cycling the Pico.
+        if (rc_active) {
+            failsafe_start_ms = 0;
+            redetected_this_fs = false;
+        } else if (active_has_lock() && !redetected_this_fs) {
+            if (failsafe_start_ms == 0) {
+                failsafe_start_ms = now;
+            } else if ((now - failsafe_start_ms) > REDETECT_AFTER_FAILSAFE_MS) {
+                redetected_this_fs = true;
+
+                // Tear down current protocol
+                switch (s_protocol) {
+                    case PROTO_IBUS: ibus_deinit(RC_UART, RC_RX_PIN); break;
+                    case PROTO_SBUS: sbus_deinit(RC_UART, RC_RX_PIN); break;
+                    default: break;
+                }
+                s_protocol = PROTO_NONE;
+
+                // Reset local state and re-detect (blocking until it locks)
+                have_baseline = false;
+                detect_protocol();
+                NCH = protocol_num_channels();
+                // Force a fresh baseline on next frame
+                last_frame_ms  = 0;
+                last_change_ms = 0;
+            }
         }
 
         // ── LED mode ───────────────────────────────────────────────────────
