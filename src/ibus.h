@@ -20,6 +20,13 @@
 // Initialise iBUS on the given UART instance and RX GPIO. Receive-only.
 void ibus_init(uart_inst_t *uart, unsigned int rx_pin);
 
+// Tear down: deinit UART and clear pad inversion (in case SBUS left it set).
+// Call before switching protocols on the same pin.
+void ibus_deinit(uart_inst_t *uart, unsigned int rx_pin);
+
+// Reset parser state (position, lock, channels, last-byte timestamp).
+void ibus_reset_state(void);
+
 // Drain any bytes waiting in the UART FIFO and advance the state machine.
 // Returns true if a new valid frame was parsed on this call.
 bool ibus_update(void);

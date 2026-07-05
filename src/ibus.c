@@ -25,8 +25,23 @@ void ibus_init(uart_inst_t *uart, unsigned int rx_pin) {
     uart_init(uart, 115200);
     uart_set_format(uart, 8, 1, UART_PARITY_NONE);
     uart_set_fifo_enabled(uart, true);
+    // Clear any pad inversion left over from a prior SBUS attempt.
+    gpio_set_inover(rx_pin, GPIO_OVERRIDE_NORMAL);
     gpio_set_function(rx_pin, GPIO_FUNC_UART);
     // Receive-only: no TX pin configured.
+}
+
+void ibus_deinit(uart_inst_t *uart, unsigned int rx_pin) {
+    (void)rx_pin;
+    if (uart) uart_deinit(uart);
+    s_uart = NULL;
+}
+
+void ibus_reset_state(void) {
+    s_pos = 0;
+    s_lock = false;
+    memset(s_channels, 0, sizeof(s_channels));
+    s_last_byte_ms = 0;
 }
 
 static bool validate_checksum(const uint8_t *buf) {

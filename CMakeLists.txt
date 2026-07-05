@@ -15,29 +15,15 @@ endif()
 
 pico_sdk_init()
 
-# ── Protocol selection ─────────────────────────────────────────────────────
-# Default to iBUS. SBUS is a future phase.
-set(PROTOCOL "ibus" CACHE STRING "RC protocol: ibus (implemented) or sbus (deferred)")
-string(TOLOWER "${PROTOCOL}" PROTOCOL)
-message(STATUS "Building for protocol: ${PROTOCOL}")
-
 # ── Sources ────────────────────────────────────────────────────────────────
-set(SOURCES
+# Both iBUS and SBUS parsers are always compiled in; the firmware auto-detects
+# which protocol is on the wire at boot.
+add_executable(rc_joystick
     src/main.c
     src/usb_descriptors.c
+    src/ibus.c
+    src/sbus.c
 )
-
-if(PROTOCOL STREQUAL "sbus")
-    message(FATAL_ERROR "SBUS support is deferred (see task #9 in the plan). Use -DPROTOCOL=ibus for now.")
-elseif(PROTOCOL STREQUAL "ibus")
-    list(APPEND SOURCES src/ibus.c)
-    set(PROTOCOL_DEFINE "PROTOCOL_IBUS=1")
-else()
-    message(FATAL_ERROR "Unknown PROTOCOL '${PROTOCOL}'. Expected 'ibus' or 'sbus'.")
-endif()
-
-# ── Executable ─────────────────────────────────────────────────────────────
-add_executable(rc_joystick ${SOURCES})
 
 # ── Include paths ──────────────────────────────────────────────────────────
 target_include_directories(rc_joystick PRIVATE
@@ -45,11 +31,7 @@ target_include_directories(rc_joystick PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src    # for our headers
 )
 
-# ── Compile definitions ────────────────────────────────────────────────────
-target_compile_definitions(rc_joystick PRIVATE ${PROTOCOL_DEFINE})
-
 # ── Link libraries ─────────────────────────────────────────────────────────
-# hardware_pio / hardware_dma will be added back when the SBUS PIO branch lands.
 target_link_libraries(rc_joystick
     pico_stdlib
     hardware_uart
@@ -58,8 +40,8 @@ target_link_libraries(rc_joystick
 )
 
 # ── stdio routing ──────────────────────────────────────────────────────────
-# We manage USB ourselves via TinyUSB. Disable Pico's stdio-USB to avoid clash.
-# UART stdio is disabled because UART0 is used for iBUS reception.
+# TinyUSB is managed manually. Disable Pico's stdio-USB to avoid clash.
+# UART stdio is disabled because UART0 is used for RC signal reception.
 pico_enable_stdio_usb(rc_joystick 0)
 pico_enable_stdio_uart(rc_joystick 0)
 

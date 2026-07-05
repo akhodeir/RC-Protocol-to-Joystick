@@ -1,19 +1,17 @@
 # rc-joystick
 
 Turn a Raspberry Pi Pico (RP2040) into a USB HID joystick that reads an RC
-receiver's serial output (iBUS today, SBUS coming) and presents itself to a
-PC/Mac as a standard game controller — perfect for drone / plane simulators
-like **Liftoff**, **Velocidrone**, **DRL Sim**, or **FPV FreeRider**.
+receiver's serial output (iBUS **or** SBUS) and presents itself to a PC/Mac
+as a standard game controller — perfect for drone / plane simulators like
+**Liftoff**, **Velocidrone**, **DRL Sim**, or **FPV FreeRider**.
 
-The firmware is protocol-based, not transmitter-specific. Any receiver that
-speaks **iBUS** or **SBUS** works:
+The firmware auto-detects iBUS vs SBUS at boot from the same GP1 pin — no
+build-time flag, no re-wiring. Any receiver speaking either protocol works:
 
-- FlySky FS-iA6B, FS-iA10B, FS-iA8B, X6B, X8B, etc.
-- Radiolink R7FG, R9DS, R12DS
-- FrSky X4R, X8R, R-XSR, X6R (via SBUS — coming in a follow-up phase)
+- FlySky FS-iA6B, FS-iA10B, FS-iA8B, X6B, X8B, etc. (iBUS or SBUS)
+- Radiolink R7FG, R9DS, R12DS (SBUS)
+- FrSky X4R, X8R, R-XSR, X6R (SBUS)
 - Any generic receiver with an iBUS or SBUS port
-
-**Current scope:** iBUS only. SBUS support is planned as a follow-up.
 
 ## Features
 
@@ -34,18 +32,23 @@ Tested with FS-iA6B and FS-iA10B paired with an FS-i6X transmitter.
 
 ## Wiring
 
+Same wiring for iBUS **or** SBUS — the firmware auto-detects which one your
+receiver is speaking.
+
 ```
-Receiver (iBUS port)                  YD-RP2040 (or Pi Pico)
+Receiver (iBUS or SBUS port)          YD-RP2040 (or Pi Pico)
 ─────────────────────────────────────────────────────────────
-iBUS signal wire ─────────────────→   GP1  (UART0 RX, pin 2)
+Signal wire      ─────────────────→   GP1  (UART0 RX, pin 2)
 +5 V (VCC)       ─────────────────→   VBUS (pin 40)
 GND              ─────────────────→   GND  (pin 3 or 38)
 
 USB-C  ───────────────────────────→   Host PC / Mac
 ```
 
-The iBUS data line is 3.3 V-level — no level shifter needed. Do NOT connect the
-receiver's 5 V rail to the Pico 3V3 pin; it will fail to boot or brown out.
+Both protocols are 3.3 V-level on the data wire — no level shifter needed.
+SBUS is inverted; the firmware flips polarity at the GPIO pad, so no
+external hardware inverter is required either. Do NOT connect the receiver's
+5 V rail to the Pico 3V3 pin.
 
 ## Status LED (GP25)
 
@@ -57,15 +60,22 @@ receiver's 5 V rail to the Pico 3V3 pin; it will fail to boot or brown out.
 | **4 rapid pulses + long pause** | Signal lost — either the receiver stopped sending frames, or channel values froze for > 1 s (transmitter turned off with receiver in "hold" mode) |
 | Mostly on with brief 100 ms dip every 2 s | Healthy: valid iBUS frames arriving with real (moving) channel values |
 
-### Note on iBUS failsafe
+### Note on iBUS vs SBUS at boot
+
+At power-up the firmware alternates between iBUS (115200 8N1, non-inverted)
+and SBUS (100000 8E2, inverted at the GPIO pad) on the same UART, spending
+~300 ms on each attempt. As soon as one produces a valid frame it locks in
+for the rest of the session and the LED transitions from `WAITING` to
+`ACTIVE`.
 
 Unlike SBUS (which has an explicit "signal lost" flag in every frame), iBUS
 has no way to signal that the transmitter dropped out. Many receivers
 (including the FS-iA6B) keep sending iBUS frames with **held** channel
 values when they lose the transmitter. To detect this, the firmware watches
-for all 14 channels being bit-identical for > 1 s — real stick input always
+for all channels being bit-identical for > 1 s — real stick input always
 jitters a little, so perfectly frozen values across the board mean the TX
 is off. This detection can be tuned via `CHANNEL_FREEZE_MS` in `src/main.c`.
+For SBUS, the FAILSAFE / FRAMELOST flag bits are honored in addition.
 
 ## Build
 
@@ -89,7 +99,7 @@ cd rc-joystick
 cp "$PICO_SDK_PATH/external/pico_sdk_import.cmake" .
 
 mkdir build && cd build
-cmake .. -DPROTOCOL=ibus
+cmake ..
 make -j$(sysctl -n hw.ncpu)
 ```
 
@@ -155,9 +165,10 @@ rc-joystick/
 ├── tusb_config.h
 ├── README.md
 ├── src/
-│   ├── main.c                  Main loop, scaling, failsafe, status LED
+│   ├── main.c                  Main loop, autodetect, scaling, failsafe, LED
 │   ├── usb_descriptors.c/.h    HID descriptor + TinyUSB callbacks
-│   └── ibus.c/.h               iBUS UART frame parser
+│   ├── ibus.c/.h               iBUS UART parser (115200 8N1)
+│   └── sbus.c/.h               SBUS UART parser (100000 8E2 inverted)
 └── tools/
     └── webhid/
         └── index.html          Custom WebHID tester (Chrome / Edge)
@@ -187,9 +198,7 @@ want to see how others have solved adjacent problems:
 
 ## Roadmap
 
-- Done: iBUS + HID joystick + on-board LED status + failsafe + WebHID tester
-- Next: SBUS support (PIO inverted UART) — enables FrSky, Radiolink, and the
-  FS-iA10B's alternate output
+- Done: iBUS + SBUS + auto-detect + HID + LED + failsafe + WebHID tester
 - Later: Persistent per-user axis inversion / mid-point trims via flash
 - Later: Optional CDC serial channel for live debugging
 
