@@ -84,20 +84,52 @@ and the LED transitions from `WAITING` (or `WRONG_WIRING`) to `ACTIVE`.
 If the LED sits in the 4-pulse `FAILSAFE` pattern for more than 10 seconds,
 the firmware silently tears down the current protocol and re-runs
 detection. This lets you swap iBUS ↔ SBUS receivers on the same GP1 pin
-without power-cycling: unplug the old receiver, wait ~15 seconds, plug in
-the new one — the LED goes back to `ACTIVE` on whichever protocol the new
-receiver speaks.
+without power-cycling — see the Failsafe section below for the full flow.
 
-### Failsafe triggers
+### Failsafe
+
+**Triggers** — failsafe engages the moment any of these fire:
 
 - **Frame timeout** — no valid frame for 500 ms (either protocol)
 - **Channel freeze** — all channels bit-identical for 5.5 s (iBUS has no
   explicit signal-lost flag; many receivers keep sending frames with held
   values when the TX drops, so we heuristically detect frozen values)
 - **SBUS flag** — the FAILSAFE or FRAMELOST bit is set in the SBUS frame
+  (nearly instant, no timeout needed)
 
 The 5.5 s freeze threshold lets you hold sticks steady in real flight
 without falsely tripping failsafe. Tune via `CHANNEL_FREEZE_MS` in `src/main.c`.
+
+**HID output during failsafe** — the device does NOT disappear from the
+host. The firmware keeps sending reports at 200 Hz, but every report has
+this fixed payload:
+
+| HID field | Value | Meaning to the sim |
+|---|---|---|
+| X (Roll)         | 0        | Stick centered |
+| Y (Pitch)        | 0        | Stick centered |
+| **Z (Throttle)** | **-32767** | **Throttle bottomed** |
+| Rx (Yaw)         | 0        | Stick centered |
+| Ry / Rz / Slider / Dial | 0 | Aux at neutral |
+| Buttons 0–31     | all 0    | All switches released |
+
+Raw wire bytes: `00 00 00 00 01 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00`
+(Z = `0x8001` little-endian = -32767).
+
+This matches real-world FPV convention: **drop, don't wander** — safer
+than "hold last stick position", which could cause a runaway. In Liftoff
+the drone will level out and fall.
+
+**Recovery** — as soon as valid frames with changing channel values start
+arriving again, `rc_active` flips back to true and real stick data resumes
+on the very next 5 ms send tick.
+
+**Runtime re-detect** — if failsafe persists for > 10 s, the firmware
+silently re-runs protocol detection (tears down the current UART setup and
+alternates between iBUS and SBUS again). This lets you swap iBUS ↔ SBUS
+receivers on the same GP1 pin without power-cycling: unplug the old
+receiver, wait ~15 seconds, plug in the new one — the LED goes back to
+`ACTIVE` on whichever protocol the new receiver speaks.
 
 ## Build
 
