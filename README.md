@@ -301,4 +301,7 @@ want to see how others have solved adjacent problems:
 
 ## License
 
-MIT — see `LICENSE`.
+GNU General Public License v3.0 — see `LICENSE`.
+
+You are free to use, modify, and redistribute this firmware, but any
+derivative works you distribute must also be released under GPL v3.
