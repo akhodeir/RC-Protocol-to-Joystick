@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 500"
+     font-family="ui-sans-serif, system-ui, sans-serif">
+  <defs>
+    <style>
+      .bg      { fill: #0f1115; }
+      .panel   { fill: #171a21; stroke: #2a3040; stroke-width: 1.5; }
+      .rx      { fill: #171a21; stroke: #5ab6ff; stroke-width: 2; }
+      .pico    { fill: #171a21; stroke: #4ade80; stroke-width: 2; }
+      .usb     { fill: #232a37; stroke: #6b7383; stroke-width: 1; }
+      .resistor{ fill: #232a37; stroke: #f4d35e; stroke-width: 1.5; }
+      .sig     { stroke: #f59e0b; stroke-width: 2.5; fill: none; }
+      .vcc     { stroke: #ef4444; stroke-width: 2.5; fill: none; }
+      .gnd     { stroke: #8b95a8; stroke-width: 2.5; fill: none; }
+      .pin-sig { fill: #f59e0b; }
+      .pin-vcc { fill: #ef4444; }
+      .pin-gnd { fill: #8b95a8; }
+      .title   { fill: #d9e0ea; font-size: 18px; font-weight: 700; }
+      .sub     { fill: #6b7383; font-size: 12px; }
+      .label   { fill: #d9e0ea; font-size: 13px; }
+      .pin     { fill: #d9e0ea; font-size: 12px; }
+      .hint    { fill: #5ab6ff; font-size: 11px; font-style: italic; }
+      .rlabel  { fill: #f4d35e; font-size: 13px; font-weight: 600; }
+      .node    { fill: #f59e0b; stroke: #0f1115; stroke-width: 1.5; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="500"/>
+
+  <!-- Title -->
+  <text class="title" x="480" y="30" text-anchor="middle">
+    Receiver → Pi Pico wiring (with 5 V → 3.3 V voltage divider)
+  </text>
+  <text class="sub" x="480" y="50" text-anchor="middle">
+    Same wiring for iBUS and SBUS — firmware auto-detects
+  </text>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Receiver on the left
+       ═══════════════════════════════════════════════════════════════════ -->
+  <rect class="rx" x="40" y="130" width="150" height="200" rx="10"/>
+  <text class="label" x="115" y="160" text-anchor="middle" font-weight="700">FS-iA10B</text>
+  <text class="sub"   x="115" y="178" text-anchor="middle">RC receiver</text>
+  <text class="sub"   x="115" y="196" text-anchor="middle">iBUS / SBUS port</text>
+
+  <!-- Receiver pins (right edge) -->
+  <rect class="pin-sig" x="180" y="220" width="14" height="10"/>
+  <text class="pin"   x="176" y="228" text-anchor="end">Signal</text>
+
+  <rect class="pin-vcc" x="180" y="260" width="14" height="10"/>
+  <text class="pin"   x="176" y="268" text-anchor="end">+5 V</text>
+
+  <rect class="pin-gnd" x="180" y="300" width="14" height="10"/>
+  <text class="pin"   x="176" y="308" text-anchor="end">GND</text>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Voltage divider in the middle
+       ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- Signal wire from RX to R1 -->
+  <path class="sig" d="M 194 225 L 340 225"/>
+
+  <!-- R1 = 5 kΩ (in-line on signal wire) -->
+  <rect class="resistor" x="340" y="212" width="80" height="26" rx="4"/>
+  <text class="rlabel" x="380" y="205" text-anchor="middle">R1 = 5 kΩ</text>
+  <text class="sub"    x="380" y="252" text-anchor="middle">series</text>
+
+  <!-- Wire from R1 to junction -->
+  <path class="sig" d="M 420 225 L 500 225"/>
+
+  <!-- Junction node -->
+  <circle class="node" cx="500" cy="225" r="5"/>
+  <text class="hint" x="500" y="212" text-anchor="middle">≈ 3.3 V</text>
+
+  <!-- Wire from junction down to R2 -->
+  <path class="sig" d="M 500 225 L 500 290"/>
+
+  <!-- R2 = 10 kΩ (vertical, junction → GND) -->
+  <rect class="resistor" x="487" y="290" width="26" height="80" rx="4"/>
+  <text class="rlabel" x="533" y="325" text-anchor="start">R2 = 10 kΩ</text>
+  <text class="sub"    x="533" y="342" text-anchor="start">pull-down</text>
+
+  <!-- Wire from R2 to GND rail -->
+  <path class="gnd" d="M 500 370 L 500 410"/>
+
+  <!-- Divider math annotation -->
+  <text class="sub" x="500" y="440" text-anchor="middle">
+    Vout = 5 V × 10 / (5 + 10) ≈ 3.33 V
+  </text>
+
+  <!-- Wire from junction over to Pico GP1 -->
+  <path class="sig" d="M 500 225 L 620 225 L 620 240 L 720 240"/>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Rails: +5 V (top) and GND (bottom)
+       ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- +5 V rail: RX +5V pin → up → across → down into Pico VBUS -->
+  <path class="vcc" d="M 194 265 L 220 265 L 220 105 L 780 105 L 780 175"/>
+
+  <!-- GND rail: RX GND → down → across → up into Pico GND -->
+  <path class="gnd" d="M 194 305 L 235 305 L 235 410 L 800 410 L 800 300"/>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Pi Pico on the right
+       ═══════════════════════════════════════════════════════════════════ -->
+  <rect class="pico" x="720" y="100" width="200" height="270" rx="12"/>
+
+  <!-- USB connector notch on top -->
+  <rect class="usb" x="795" y="80" width="50" height="20" rx="2"/>
+  <text class="sub" x="820" y="95" text-anchor="middle">USB</text>
+
+  <text class="label" x="820" y="130" text-anchor="middle" font-weight="700">Raspberry Pi Pico</text>
+  <text class="sub"   x="820" y="148" text-anchor="middle">RP2040</text>
+
+  <!-- Pico pins on left edge -->
+  <rect class="pin-vcc" x="708" y="170" width="14" height="10"/>
+  <text class="pin"   x="730" y="178" text-anchor="start">VBUS · pin 40</text>
+
+  <rect class="pin-sig" x="708" y="235" width="14" height="10"/>
+  <text class="pin"   x="730" y="243" text-anchor="start">GP1 · pin 2</text>
+  <text class="sub"   x="730" y="256" text-anchor="start">UART0 RX</text>
+
+  <rect class="pin-gnd" x="708" y="295" width="14" height="10"/>
+  <text class="pin"   x="730" y="303" text-anchor="start">GND · pin 3</text>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Legend
+       ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(40, 460)">
+    <line class="sig" x1="0"   y1="0" x2="30"  y2="0"/>
+    <text class="pin" x="35"   y="4">Signal (3.3 V after divider)</text>
+
+    <line class="vcc" x1="240" y1="0" x2="270" y2="0"/>
+    <text class="pin" x="275"  y="4">+5 V</text>
+
+    <line class="gnd" x1="360" y1="0" x2="390" y2="0"/>
+    <text class="pin" x="395"  y="4">GND</text>
+
+    <rect class="resistor" x="500" y="-6" width="20" height="12" rx="2"/>
+    <text class="pin" x="525"  y="4">Resistor (5 kΩ, 10 kΩ, ≥ 1/8 W, 5 % tolerance is fine)</text>
+  </g>
+</svg>

@@ -47,6 +47,8 @@ with an FS-i6X transmitter.
 Same wiring for iBUS **or** SBUS — the firmware auto-detects which one your
 receiver is speaking.
 
+![Wiring diagram: receiver, voltage divider, and Pi Pico](docs/wiring.svg)
+
 ```
 Receiver (iBUS or SBUS port)          Raspberry Pi Pico
 ─────────────────────────────────────────────────────────────
@@ -237,10 +239,12 @@ buttons 0 through 5 (iBUS) or 0 through 7 (SBUS).
 rc-joystick/
 ├── CMakeLists.txt
 ├── pico_sdk_import.cmake
-├── tusb_config.h
 ├── README.md
+├── docs/
+│   └── wiring.svg             Wiring diagram (embedded above)
 ├── src/
 │   ├── main.c                  Main loop, autodetect, scaling, failsafe, LED
+│   ├── tusb_config.h           TinyUSB build-time configuration
 │   ├── usb_descriptors.c/.h    HID descriptor + TinyUSB callbacks
 │   ├── ibus.c/.h               iBUS UART parser (115200 8N1)
 │   └── sbus.c/.h               SBUS UART parser (100000 8E2 inverted via pad)
