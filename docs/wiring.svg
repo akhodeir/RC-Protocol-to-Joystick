@@ -89,17 +89,17 @@
   </text>
 
   <!-- Wire from junction over to Pico GP1 -->
-  <path class="sig" d="M 500 225 L 620 225 L 620 240 L 720 240"/>
+  <path class="sig" d="M 500 225 L 620 225 L 620 240 L 708 240"/>
 
   <!-- ═══════════════════════════════════════════════════════════════════
        Rails: +5 V (top) and GND (bottom)
        ═══════════════════════════════════════════════════════════════════ -->
 
-  <!-- +5 V rail: RX +5V pin → up → across → down into Pico VBUS -->
-  <path class="vcc" d="M 194 265 L 220 265 L 220 105 L 780 105 L 780 175"/>
+  <!-- +5 V rail: RX +5V pin → up → across → down into Pico VBUS pin -->
+  <path class="vcc" d="M 194 265 L 220 265 L 220 105 L 708 105 L 708 175"/>
 
-  <!-- GND rail: RX GND → down → across → up into Pico GND -->
-  <path class="gnd" d="M 194 305 L 235 305 L 235 410 L 800 410 L 800 300"/>
+  <!-- GND rail: RX GND → down → across (through R2's GND tap at x=500) → up into Pico GND -->
+  <path class="gnd" d="M 194 305 L 235 305 L 235 410 L 708 410 L 708 300"/>
 
   <!-- ═══════════════════════════════════════════════════════════════════
        Pi Pico on the right
