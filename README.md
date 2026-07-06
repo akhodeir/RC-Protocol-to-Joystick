@@ -316,3 +316,23 @@ GNU General Public License v3.0 — see `LICENSE`.
 
 You are free to use, modify, and redistribute this firmware, but any
 derivative works you distribute must also be released under GPL v3.
+
+
+---
+## [Donation] Your support is invaluable to this project!
+
+Countless hours of hard work, prototyping, and investment in tools and materials have gone into making this project a reality. If you appreciate the effort and would like to contribute, your donation will help us continue developing and improving Pi-Fly.
+
+Please consider donating for the project. There were tremendous effort added in this project. 
+Many prototype boards were built and a lot of tools were purchased to make this project become true.
+
+click image below to start donating :
+
+[
+![Donate with PayPal](photo/paypal-donate-button.png)
+](https://www.paypal.com/donate/?hosted_button_id=LGAC3VKW2A8ZA)
+
+**Important**
+
+Use this project at your own risk. 
+
