@@ -50,17 +50,42 @@ receiver is speaking.
 ```
 Receiver (iBUS or SBUS port)          Raspberry Pi Pico
 ─────────────────────────────────────────────────────────────
-Signal wire      ─────────────────→   GP1  (UART0 RX, pin 2)
+Signal wire ──[5 kΩ]──┬──[10 kΩ]──GND
+                      │
+                      └───────────→   GP1  (UART0 RX, pin 2)
+
 +5 V (VCC)       ─────────────────→   VBUS (pin 40)
 GND              ─────────────────→   GND  (pin 3 or 38)
 
 USB (micro-USB)  ─────────────────→   Host PC / Mac
 ```
 
-Both protocols are 3.3 V-level on the data wire — no level shifter needed.
-SBUS is inverted; the firmware flips polarity at the GPIO pad, so **no
-external hardware inverter is required either**. Do NOT connect the
-receiver's 5 V rail to the Pico 3V3 pin.
+### Voltage divider on the signal wire
+
+Some FlySky receivers (including FS-iA10B in SBUS mode) drive the signal
+line at **5 V logic level**, which exceeds the RP2040's 3.3 V input
+tolerance and can damage the chip over time. A simple two-resistor divider
+brings it safely into range:
+
+```
+5 V signal ──[R1 = 5 kΩ]──┬──── GP1 (Pico input)
+                          │
+                         [R2 = 10 kΩ]
+                          │
+                         GND
+```
+
+Output voltage: `Vout = Vin × R2 / (R1 + R2) = 5 × 10/15 ≈ 3.33 V` — a
+clean logic HIGH for the Pico, well under the 3.3 V rail. Signal integrity
+is fine at both 100 kHz (SBUS) and 115.2 kHz (iBUS) baud with these values.
+
+If your receiver already outputs at 3.3 V level (some clones and newer
+revisions do), you can skip the divider and wire the signal directly to
+GP1 — but the divider does no harm either way and is the safer default.
+
+**Do NOT** connect the receiver's 5 V rail to the Pico's 3V3 pin. Use VBUS.
+SBUS-specific inversion is handled in the firmware via the RP2040's built-in
+GPIO pad inversion — no external inverter chip is needed.
 
 ## Status LED (GP25)
 
@@ -178,15 +203,11 @@ picotool load build/rc_joystick.uf2 -f && picotool reboot
    fast BOOT cadence during USB enumeration, then slow to the 1 s WAITING
    blink once macOS mounts the HID device — no receiver connected yet.
 
-2. For descriptor-level debugging (Chrome / Edge only), open
-   **https://nondebug.github.io/webhid-explorer/** and select the RC-Joystick
-   device — you'll see the parsed HID descriptor tree and raw report bytes.
-
-3. For a sim-styled visualiser tailored to this project, open
+2. For a sim-styled visualiser tailored to this project, open
    `tools/webhid/rc_joystick.html` in Chrome or Edge — labelled bars for each axis,
    button LEDs, live report rate, and a 10-second CSV recording button.
 
-4. Bind the receiver and transmitter (procedure varies by receiver — most
+3. Bind the receiver and transmitter (procedure varies by receiver — most
    FlySky receivers: hold the button while powering it, then start bind mode
    on the transmitter). Once bound, the on-board LED enters the healthy
    nearly-solid `ACTIVE` pattern. If the TX drops for > 500 ms or channels
