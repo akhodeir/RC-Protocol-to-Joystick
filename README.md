@@ -209,6 +209,8 @@ picotool load build/rc_joystick.uf2 -f && picotool reboot
    `tools/webhid/rc_joystick.html` in Chrome or Edge — labelled bars for each axis,
    button LEDs, live report rate, and a 10-second CSV recording button.
 
+   ![WebHID tester in action](docs/webhid.png)
+
 3. Bind the receiver and transmitter (procedure varies by receiver — most
    FlySky receivers: hold the button while powering it, then start bind mode
    on the transmitter). Once bound, the on-board LED enters the healthy
@@ -241,7 +243,8 @@ rc-joystick/
 ├── pico_sdk_import.cmake
 ├── README.md
 ├── docs/
-│   └── wiring.svg             Wiring diagram (embedded above)
+│   ├── wiring.svg             Wiring diagram (embedded in README)
+│   └── webhid.png             Screenshot of the WebHID tester
 ├── src/
 │   ├── main.c                  Main loop, autodetect, scaling, failsafe, LED
 │   ├── tusb_config.h           TinyUSB build-time configuration
