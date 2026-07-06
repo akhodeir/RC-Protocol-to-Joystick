@@ -42,6 +42,13 @@ any board-specific pinout.
 SBUS output. Tested with FS-iA6B (iBUS) and FS-iA10B (iBUS + SBUS) paired
 with an FS-i6X transmitter.
 
+![Assembled board: Pi Pico soldered on perfboard, connected to an FS-iA10B receiver](docs/assembled_board.jpg)
+
+Example build: Pi Pico soldered onto a perfboard, three-wire servo cable
+running to the FS-iA10B's SBUS port. Voltage-divider resistors sit under
+the board; the red/black jumpers going off-frame are the USB power / logic
+analyser probes used during bring-up.
+
 ## Wiring
 
 Same wiring for iBUS **or** SBUS — the firmware auto-detects which one your
@@ -243,6 +250,7 @@ rc-joystick/
 ├── pico_sdk_import.cmake
 ├── README.md
 ├── docs/
+│   ├── assembled_board.jpg    Photo of an example build
 │   ├── wiring.svg             Wiring diagram (embedded in README)
 │   └── webhid.png             Screenshot of the WebHID tester
 ├── src/
