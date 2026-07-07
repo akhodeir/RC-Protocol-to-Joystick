@@ -182,7 +182,7 @@ export PICO_SDK_PATH="$HOME/pico-sdk"     # or wherever you cloned it
 Configure and build:
 
 ```bash
-git clone https://github.com/<you>/rc-joystick.git
+git clone https://github.com/akhodeir/RC-Protocol-to-Joystick.git
 cd rc-joystick
 cp "$PICO_SDK_PATH/external/pico_sdk_import.cmake" .
 
