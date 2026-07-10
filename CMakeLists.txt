@@ -3,9 +3,12 @@ cmake_minimum_required(VERSION 3.13)
 # ── Prefer the in-tree submodules for the SDK and picotool ────────────────
 # The repo bundles Pico SDK and picotool under lib/ as git submodules, so a
 # fresh clone (with --recurse-submodules) can build without any external
-# installs. If the user already exported PICO_SDK_PATH / picotool_DIR
-# pointing elsewhere, those take precedence.
-if(NOT DEFINED PICO_SDK_PATH AND NOT DEFINED ENV{PICO_SDK_PATH})
+# installs. If the user already exported PICO_SDK_PATH pointing elsewhere,
+# that takes precedence.
+if(DEFINED ENV{PICO_SDK_PATH} AND NOT DEFINED PICO_SDK_PATH)
+    set(PICO_SDK_PATH "$ENV{PICO_SDK_PATH}")
+    message(STATUS "Using PICO_SDK_PATH from environment: ${PICO_SDK_PATH}")
+elseif(NOT DEFINED PICO_SDK_PATH)
     set(PICO_SDK_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/pico-sdk"
         CACHE PATH "Path to the Pico SDK (defaults to in-tree submodule)")
     message(STATUS "Using bundled Pico SDK: ${PICO_SDK_PATH}")
@@ -28,7 +31,16 @@ if(NOT DEFINED FETCHCONTENT_SOURCE_DIR_PICOTOOL)
 endif()
 
 # ── Pull in Pico SDK (must happen before project()) ───────────────────────
-include(pico_sdk_import.cmake)
+# Directly include the SDK's init script — no need for the pico_sdk_import.cmake
+# wrapper since we handle PICO_SDK_PATH ourselves above and don't want the
+# git-fetch fallback.
+if(NOT EXISTS "${PICO_SDK_PATH}/pico_sdk_init.cmake")
+    message(FATAL_ERROR
+        "Pico SDK not found at ${PICO_SDK_PATH}. "
+        "Did you clone with --recurse-submodules, or run "
+        "'git submodule update --init --recursive'?")
+endif()
+include("${PICO_SDK_PATH}/pico_sdk_init.cmake")
 
 project(rc_joystick C CXX ASM)
 set(CMAKE_C_STANDARD 11)

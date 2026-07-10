@@ -260,7 +260,6 @@ buttons 0 through 5 (iBUS) or 0 through 7 (SBUS).
 ```
 rc-joystick/
 ├── CMakeLists.txt
-├── pico_sdk_import.cmake
 ├── README.md
 ├── docs/
 │   ├── assembled_board.jpg    Photo of an example build
