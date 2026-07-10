@@ -33,7 +33,7 @@ bool ibus_update(void);
 
 // Copy the latest n channels (max IBUS_NUM_CHANNELS) into out[].
 // Values are raw iBUS: 1000–2000. Returns false if no valid frame has arrived.
-bool ibus_get_channels(uint16_t *out, uint n);
+bool ibus_get_channels(uint16_t *out, unsigned int n);
 
 // True once at least one valid frame has been received.
 bool ibus_has_lock(void);

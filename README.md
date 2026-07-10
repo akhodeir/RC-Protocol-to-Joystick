@@ -264,7 +264,8 @@ rc-joystick/
 ├── docs/
 │   ├── assembled_board.jpg    Photo of an example build
 │   ├── wiring.svg             Wiring diagram (embedded in README)
-│   └── webhid.png             Screenshot of the WebHID tester
+│   ├── webhid.png             Screenshot of the WebHID tester
+│   └── paypal-donate-button.png  Donation button used at the bottom of the README
 ├── src/
 │   ├── main.c                  Main loop, autodetect, scaling, failsafe, LED
 │   ├── tusb_config.h           TinyUSB build-time configuration
@@ -336,7 +337,7 @@ derivative works you distribute must also be released under GPL v3.
 ---
 ## [Donation] Your support is invaluable to this project!
 
-Countless hours of hard work, prototyping, and investment in tools and materials have gone into making this project a reality. If you appreciate the effort and would like to contribute, your donation will help us continue developing and improving Pi-Fly.
+Countless hours of hard work, prototyping, and investment in tools and materials have gone into making this project a reality. If you appreciate the effort and would like to contribute, your donation will help us continue developing and improving rc-joystick.
 
 Please consider donating for the project. There were tremendous effort added in this project.
 Many prototype boards were built and a lot of tools were purchased to make this project become true.

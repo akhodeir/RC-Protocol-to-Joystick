@@ -94,10 +94,10 @@ bool ibus_update(void) {
     return got_frame;
 }
 
-bool ibus_get_channels(uint16_t *out, uint n) {
+bool ibus_get_channels(uint16_t *out, unsigned int n) {
     if (!s_lock) return false;
     if (n > IBUS_NUM_CHANNELS) n = IBUS_NUM_CHANNELS;
-    for (uint i = 0; i < n; i++) out[i] = s_channels[i];
+    for (unsigned int i = 0; i < n; i++) out[i] = s_channels[i];
     return true;
 }
 
