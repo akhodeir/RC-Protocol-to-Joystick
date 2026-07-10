@@ -170,25 +170,38 @@ receiver, wait ~15 seconds, plug in the new one — the LED goes back to
 Prerequisites (macOS via Homebrew):
 
 ```bash
-brew install cmake arm-none-eabi-gcc picotool
+brew install cmake arm-none-eabi-gcc
 ```
 
-Environment (in `~/.zshrc`):
+That's it — the Pico SDK and picotool are bundled as git submodules under
+`lib/`, so nothing else needs to be installed system-wide. No environment
+variables to set either.
+
+Clone with submodules and build:
 
 ```bash
-export PICO_SDK_PATH="$HOME/pico-sdk"     # or wherever you cloned it
-```
-
-Configure and build:
-
-```bash
-git clone https://github.com/akhodeir/RC-Protocol-to-Joystick.git
-cd rc-joystick
-cp "$PICO_SDK_PATH/external/pico_sdk_import.cmake" .
+git clone --recurse-submodules https://github.com/akhodeir/RC-Protocol-to-Joystick.git
+cd RC-Protocol-to-Joystick
 
 mkdir build && cd build
 cmake ..
 make -j$(sysctl -n hw.ncpu)
+```
+
+If you already cloned without `--recurse-submodules`, pull them in with:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Using a system-installed Pico SDK instead of the bundled one
+
+If you'd rather use a Pico SDK you already have installed system-wide,
+just set `PICO_SDK_PATH` and CMake will honor it:
+
+```bash
+export PICO_SDK_PATH="$HOME/pico-sdk"
+cmake ..
 ```
 
 Output: `build/rc_joystick.uf2` (~46 KB).
@@ -259,9 +272,12 @@ rc-joystick/
 │   ├── usb_descriptors.c/.h    HID descriptor + TinyUSB callbacks
 │   ├── ibus.c/.h               iBUS UART parser (115200 8N1)
 │   └── sbus.c/.h               SBUS UART parser (100000 8E2 inverted via pad)
-└── tools/
-    └── webhid/
-        └── rc_joystick.html    Custom WebHID tester (Chrome / Edge)
+├── tools/
+│   └── webhid/
+│       └── rc_joystick.html    Custom WebHID tester (Chrome / Edge)
+└── lib/                        Git submodules (fetched with --recurse-submodules)
+    ├── pico-sdk/               Raspberry Pi Pico C/C++ SDK
+    └── picotool/               UF2 packager / device tool
 ```
 
 ## Notable implementation details

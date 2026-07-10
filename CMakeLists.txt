@@ -1,5 +1,32 @@
 cmake_minimum_required(VERSION 3.13)
 
+# ── Prefer the in-tree submodules for the SDK and picotool ────────────────
+# The repo bundles Pico SDK and picotool under lib/ as git submodules, so a
+# fresh clone (with --recurse-submodules) can build without any external
+# installs. If the user already exported PICO_SDK_PATH / picotool_DIR
+# pointing elsewhere, those take precedence.
+if(NOT DEFINED PICO_SDK_PATH AND NOT DEFINED ENV{PICO_SDK_PATH})
+    set(PICO_SDK_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/pico-sdk"
+        CACHE PATH "Path to the Pico SDK (defaults to in-tree submodule)")
+    message(STATUS "Using bundled Pico SDK: ${PICO_SDK_PATH}")
+endif()
+
+# Redirect the SDK's FetchContent lookup for picotool to our in-tree copy so
+# it doesn't try to git-clone raspberrypi/picotool during configure. The
+# variable name matches CMake's FetchContent override convention.
+if(NOT DEFINED FETCHCONTENT_SOURCE_DIR_PICOTOOL)
+    set(FETCHCONTENT_SOURCE_DIR_PICOTOOL
+        "${CMAKE_CURRENT_SOURCE_DIR}/lib/picotool"
+        CACHE PATH "Path to the picotool source (defaults to in-tree submodule)")
+    message(STATUS "Using bundled picotool: ${FETCHCONTENT_SOURCE_DIR_PICOTOOL}")
+    # The SDK's picotool version check runs first and errors out if the
+    # system picotool is older than what the SDK requires. Force the SDK
+    # to skip that check and use FetchContent (which will resolve to our
+    # bundled copy via the override above).
+    set(PICOTOOL_FORCE_FETCH_FROM_GIT ON
+        CACHE BOOL "Use in-tree picotool submodule instead of any system install")
+endif()
+
 # ── Pull in Pico SDK (must happen before project()) ───────────────────────
 include(pico_sdk_import.cmake)
 
